@@ -112,7 +112,7 @@ function secPosition(b) {
 }
 function secActus(b) {
   const st = S.data.settings, T = st.topics, msg = msgSpan();
-  const list = el('div', { class: 'topics' });
+  const list = el('div', { class: 'topiclist' });
   const draw = () => {
     list.replaceChildren(...T.map((t, i) => {
       const col = el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#d8d4c8', class: 'tcol' }); col.oninput = () => t.color = col.value;

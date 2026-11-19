@@ -115,7 +115,7 @@
   // graphique détaillé d'un cours
   function detailCard(t, force) {
     const b = el('div', {}, loading());
-    const btns = el('span', { class: 'rng' }, ...Object.keys(RANGES).map(k => el('button', { class: k === detailRange ? 'on' : null, text: k, onclick: () => { detailRange = k; loadWidgets(t, false); } })),
+    const btns = el('span', { class: 'rng' }, ...Object.keys(RANGES).map(k => el('button', { class: k === detailRange ? 'on' : null, text: QG_LANG === 'en' ? k.replace('J', 'D').replace('A', 'Y') : k, onclick: () => { detailRange = k; loadWidgets(t, false); } })),
       el('button', { text: '✕', title: 'Fermer', onclick: () => { detail = null; loadWidgets(t, false); } }));
     quote(detail, detailRange, force).then(q => {
       const up = q.first != null && q.price >= q.first, c = el('canvas', { style: 'width:100%;height:190px;display:block' });
@@ -175,10 +175,10 @@
 
   async function launches(b, force) {
     const j = await getJSON('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=6', 3600e3, force);
-    const L = j.results || [];
+    const L = (j.results || []).filter(x => new Date(x.net) > Date.now() - 3600e3);
     b.replaceChildren(el('ul', { class: 'timeline' }, ...L.map(x => {
-      const t = new Date(x.net), d = Math.round((t - Date.now()) / 864e5), prov = (x.launch_service_provider || {}).name || x.lsp_name || '', loc = ((x.pad || {}).location || {}).name || x.location || '';
-      return el('li', {}, el('div', { class: 'd' }, el('span', { text: fmtDate(x.net) + (d >= 0 ? '  ·  J-' + d : '') }), el('span', { class: 'dim', text: ((x.status || {}).abbrev || '') })),
+      const t = new Date(x.net), d = Math.floor((t - Date.now()) / 864e5), prov = (x.launch_service_provider || {}).name || x.lsp_name || '', loc = ((x.pad || {}).location || {}).name || x.location || '';
+      return el('li', {}, el('div', { class: 'd' }, el('span', { text: fmtDate(x.net) + (t > Date.now() ? '  ·  J-' + d : '') }), el('span', { class: 'dim', text: ((x.status || {}).abbrev || '') })),
         el('div', { class: 'x', text: x.name + '\n' + [prov, loc].filter(Boolean).join(' · ') }));
     })), el('div', { class: 'note', text: 'Source : The Space Devs (Launch Library 2). Dates susceptibles de changer.' }));
   }

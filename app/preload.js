@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('qg', {
   setMailConfig: (cfg) => ipcRenderer.invoke('mail:config:set', cfg),
   mail: (query) => ipcRenderer.invoke('mail:fetch', query),
   world: () => ipcRenderer.invoke('world'),
+  setLang: (l) => ipcRenderer.invoke('app:lang', l),
   reverse: (lat, lon) => ipcRenderer.invoke('geo:reverse', lat, lon),
   resolveLink: (u) => ipcRenderer.invoke('geo:resolve', u),
   locate: () => ipcRenderer.invoke('geo:locate'),

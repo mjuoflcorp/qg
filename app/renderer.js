@@ -445,7 +445,7 @@ $('#news-tabs').addEventListener('click', (e) => {
    MÉTÉO (Open-Meteo)
    ========================================================= */
 const WMO = { 0: 'ciel clair', 1: 'peu nuageux', 2: 'partiellement nuageux', 3: 'couvert', 45: 'brouillard', 48: 'brouillard givrant', 51: 'bruine légère', 53: 'bruine', 55: 'bruine forte', 61: 'pluie faible', 63: 'pluie', 65: 'pluie forte', 66: 'pluie verglaçante', 67: 'pluie verglaçante', 71: 'neige faible', 73: 'neige', 75: 'neige forte', 80: 'averses', 81: 'averses', 82: 'fortes averses', 95: 'orage', 96: 'orage + grêle', 99: 'orage + grêle' };
-const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+const DIRS = QG_LANG === 'en' ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] : ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 const dir = (d) => d == null ? '' : DIRS[Math.round(d / 45) % 8];
 const r0 = (x) => x == null ? '--' : Math.round(x);
 async function loadWeather() {
@@ -456,9 +456,9 @@ async function loadWeather() {
 }
 function rainVerdict(d, i) {
   const p = d.precipitation_probability_max[i], mm = d.precipitation_sum[i], code = d.weather_code[i];
-  if ((p != null && p >= 60) || mm >= 2 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code)) return { txt: 'OUI', cls: 'yes' };
+  if ((p != null && p >= 60) || mm >= 2 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code)) return { txt: QG_LANG === 'en' ? 'YES' : 'OUI', cls: 'yes' };
   if ((p != null && p >= 30) || mm >= 0.3) return { txt: 'POSSIBLE', cls: 'yes' };
-  return { txt: 'NON', cls: 'no' };
+  return { txt: QG_LANG === 'en' ? 'NO' : 'NON', cls: 'no' };
 }
 function renderWeather() {
   const box = $('#wx'), w = S.weather; $('#wx-loc').textContent = S.data.settings.location.name.toUpperCase();
@@ -470,7 +470,7 @@ function renderWeather() {
     el('div', { class: 'wx-now' }, el('span', { class: 't', text: r0(c.temperature_2m) + '°' }), el('span', { class: 's', text: WMO[c.weather_code] || '' })),
     el('div', { class: 'wx-rain' }, el('span', { class: 'k', text: 'PLUIE DEMAIN ?' }), el('span', { class: 'v ' + rv.cls, text: `${rv.txt} · ${r0(d.precipitation_probability_max[1])} % · ${(d.precipitation_sum[1] || 0).toFixed(1)} mm` })),
     el('table', { class: 'kv' },
-      el('tr', {}, el('th', { text: 'VENT' }), el('td', { text: `${dir(c.wind_direction_10m)} ${r0(c.wind_speed_10m)} km/h · raf. ${r0(c.wind_gusts_10m)}` })),
+      el('tr', {}, el('th', { text: 'VENT' }), el('td', { text: `${dir(c.wind_direction_10m)} ${r0(c.wind_speed_10m)} km/h · ${QG_LANG === 'en' ? 'gusts' : 'raf.'} ${r0(c.wind_gusts_10m)}` })),
       m && m.current && m.current.sea_surface_temperature != null ? el('tr', {}, el('th', { text: 'MER' }), el('td', { text: `${r0(m.current.sea_surface_temperature)}° · ${QG_LANG === 'en' ? 'waves' : 'houle'} ${m.current.wave_height != null ? m.current.wave_height.toFixed(1) : '--'} m` })) : null,
       el('tr', {}, el('th', { text: 'SOLEIL' }), el('td', { text: `${(d.sunrise[0] || '').slice(11)} → ${(d.sunset[0] || '').slice(11)}` }))),
     el('div', { class: 'days' }, ...[0, 1, 2].map(i => el('div', { class: 'day' },
@@ -538,7 +538,7 @@ function updateStrip() {
   const w = S.weather;
   if (w && w.fx) {
     const c = w.fx.current, d = w.fx.daily, rv = rainVerdict(d, 1);
-    $('#s-wx').textContent = `${S.data.settings.location.name.toUpperCase()} ${r0(c.temperature_2m)}°C · VENT ${dir(c.wind_direction_10m)} ${r0(c.wind_speed_10m)} KM/H`;
+    $('#s-wx').textContent = `${S.data.settings.location.name.toUpperCase()} ${r0(c.temperature_2m)}°C · ${QG_LANG === 'en' ? 'WIND' : 'VENT'} ${dir(c.wind_direction_10m)} ${r0(c.wind_speed_10m)} KM/H`;
     $('#s-rain').textContent = rv.txt; $('#s-rain').className = rv.cls === 'no' ? 'ok' : 'warn';
   }
   $('#s-mail').textContent = S.mail ? String(S.mail.total) : '--';
@@ -664,6 +664,7 @@ async function refreshAll() {
 }
 (async function boot() {
   if (document.readyState === 'loading') await new Promise(res => document.addEventListener('DOMContentLoaded', res));
+  try { window.qg.setLang && window.qg.setLang(QG_LANG); } catch (e) {}
   S.data = await window.qg.getData();
   { const l = (S.data.settings || {}).lang; if ((l === 'en' || l === 'fr') && l !== QG_LANG) { setLang(l); location.reload(); return; } }
   S.data.settings = S.data.settings || {};

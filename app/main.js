@@ -156,7 +156,7 @@ async function geoSearch(q, cc) {
   if (key in c) return c[key];
   let res = null;
   try {
-    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&accept-language=fr&q=' + encodeURIComponent(q) + (cc ? '&countrycodes=' + cc : '');
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&accept-language=' + UI_LANG + '&q=' + encodeURIComponent(q) + (cc ? '&countrycodes=' + cc : '');
     const arr = await nominatim(url);
     const hit = (arr || []).find(r => PLACE_TYPES.has(r.type) || PLACE_TYPES.has(r.addresstype) || r.category === 'place' || r.category === 'boundary');
     if (hit && (cc || Number(hit.importance) >= 0.45)) res = { lat: Number(hit.lat), lon: Number(hit.lon), name: hit.name || q, country: String(hit.display_name || '').split(',').pop().trim(), type: hit.addresstype || hit.type };
@@ -166,7 +166,7 @@ async function geoSearch(q, cc) {
 }
 async function reverseName(lat, lon) {
   try {
-    const r = await nominatim(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=fr&lat=${lat}&lon=${lon}`);
+    const r = await nominatim(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=${UI_LANG}&lat=${lat}&lon=${lon}`);
     const a = r.address || {};
     return a.city || a.town || a.village || a.municipality || a.county || r.name || '';
   } catch (e) { return ''; }
@@ -341,7 +341,9 @@ app.whenReady().then(() => {
     try { return JSON.parse(await getText('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')); } catch (e) { return null; }
   });
   handle('geo:locate', () => locate());
-  handle('geo:reverse', (e, lat, lon) => { lat = Number(lat); lon = Number(lon); if (!isFinite(lat) || !isFinite(lon)) return ''; return reverseName(lat, lon); });
+  let UI_LANG = 'fr';
+handle('app:lang', (e, l) => { UI_LANG = l === 'en' ? 'en' : 'fr'; return true; });
+handle('geo:reverse', (e, lat, lon) => { lat = Number(lat); lon = Number(lon); if (!isFinite(lat) || !isFinite(lon)) return ''; return reverseName(lat, lon); });
   handle('geo:resolve', async (e, url) => {
     // liens courts Google Maps (maps.app.goo.gl) -> URL finale contenant les coordonnées
     let u; try { u = new URL(String(url)); } catch (err) { return null; }

@@ -270,7 +270,7 @@ table.kv tr+tr{border-top:1px dashed var(--line)}
 .chk{display:flex!important;gap:8px;align-items:center;cursor:pointer}
 .chk input{width:auto!important;margin:0!important}
 /* topics */
-.topics{display:flex;flex-direction:column;gap:8px}
+.topiclist{display:flex;flex-direction:column;gap:8px}
 .topic{border:1px solid var(--line);border-left:3px solid var(--tc);padding:8px 10px}
 .topic .row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .topic input,.topic textarea{margin:0 0 6px!important}
@@ -353,3 +353,5 @@ table.kv tr+tr{border-top:1px dashed var(--line)}
 
 .leaflet-control-layers{background:var(--panel)!important;color:var(--ink)!important;border:1px solid var(--line2)!important;border-radius:0!important}
 .leaflet-control-layers label{font-size:11px;margin:2px 0}
+
+.leaflet-control-layers,.leaflet-control-layers label,.leaflet-control-layers span{color:var(--ink)!important;font-family:inherit}

@@ -6,7 +6,11 @@
 
 QG 1.0 est un tableau de bord de bureau, gratuit et sans compte, avec une interface sombre façon cockpit. Tu choisis les sujets qui t'intéressent. Chaque sujet a sa propre page, et tout reste sur ton PC.
 
-<!-- Ajoute ici une capture : crée un dossier docs/, mets-y capture-qg.png, puis remplace cette ligne par : ![Capture d'écran](docs/capture-qg.png) -->
+![Page Économie : actus, graphique du S&P 500, bourse](docs/screenshot-economy.png)
+
+![Page Espace : actus et prochains lancements](docs/screenshot-space.png)
+
+![Configuration en une minute : langue, carte, topics](docs/screenshot-onboarding.png)
 
 ---
 

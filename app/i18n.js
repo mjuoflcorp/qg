@@ -23,7 +23,7 @@ const EN = {
   'CHARGEMENT…': 'LOADING…', 'TOUT': 'ALL', 'PRINCIPALE': 'PRIMARY', 'TOUS': 'ALL', '(non localisée)': '(not located)', 'Position précise': 'Precise location', 'Position approximative (pays)': 'Approximate location (country)',
   'AUCUNE ACTU (48 H) DANS CETTE CATÉGORIE': 'NO NEWS (48 H) IN THIS CATEGORY', 'Sources injoignables : ': 'Unreachable sources: ', 'LIRE L’ARTICLE →': 'READ ARTICLE →', '[ LIRE L’ARTICLE → ]': '[ READ ARTICLE → ]',
   'Gmail non configuré.': 'Gmail not set up.', 'CONFIGURER': 'SET UP', 'AUCUN MAIL NON LU': 'NO UNREAD MAIL', 'MÉTÉO INDISPONIBLE': 'WEATHER UNAVAILABLE', 'MÉTÉO INDISPONIBLE (réseau)': 'WEATHER UNAVAILABLE (network)',
-  'VENT': 'WIND', 'SOLEIL': 'SUN', 'AUJ.': 'TODAY', 'DEMAIN': 'TOMORROW', 'PLUIE DEMAIN ?': 'RAIN TOMORROW?', 'MER': 'SEA',
+  'VENT': 'WIND', 'SOLEIL': 'SUN', 'AUJ.': 'TODAY', 'DEMAIN': 'TOMORROW', 'PLUIE DEMAIN ?': 'RAIN TOMORROW?', 'MER': 'SEA', 'POSSIBLE': 'POSSIBLE', 'Success': 'Success',
   // météo
   'ciel clair': 'clear sky', 'peu nuageux': 'mostly clear', 'partiellement nuageux': 'partly cloudy', 'couvert': 'overcast', 'brouillard': 'fog', 'brouillard givrant': 'freezing fog', 'bruine légère': 'light drizzle', 'bruine': 'drizzle', 'bruine forte': 'heavy drizzle',
   'pluie faible': 'light rain', 'pluie': 'rain', 'pluie forte': 'heavy rain', 'pluie verglaçante': 'freezing rain', 'neige faible': 'light snow', 'neige': 'snow', 'neige forte': 'heavy snow', 'averses': 'showers', 'fortes averses': 'heavy showers', 'orage': 'thunderstorm', 'orage + grêle': 'thunderstorm + hail',
@@ -134,11 +134,16 @@ const RX = [
   [/^(.+) — ÉQUIVALENT (.+)$/, '$1 — EQUIVALENT $2'], [/^QUALITÉ DE L’AIR & POLLENS \/\/ (.*)$/, 'AIR QUALITY & POLLEN // $1'],
   [/^Pollens — graminées : (\S+) · bouleau : (\S+) · aulne : (\S+) · ambroisie : (\S+)$/, (m, a, b, c, d) => `Pollen — grass: ${g(a)} · birch: ${g(b)} · alder: ${g(c)} · ragweed: ${g(d)}`],
   [/^(\d+) pts · (\d+) com\.$/, '$1 pts · $2 comments'], [/^(.*)·\s+J-(\d+)$/, '$1· D-$2'], [/^(.*)·\s+AUJOURD’HUI$/, '$1· TODAY'], [/^(.*)·\s+passée$/, '$1· past'],
-  [/^(.+) \((non localisée)\)$/, '$1 (not located)'], [/^COURSE (\d)/, 'RUNNING $1'], [/^sur la période :$/, 'over the period:']
+  [/^(.+) \((non localisée)\)$/, '$1 (not located)'], [/^([◌⌖]) (.+)$/, (m, a, b) => a + ' ' + g(b)], [/^COURSE (\d)/, 'RUNNING $1'], [/^sur la période :$/, 'over the period:']
 ];
-let EN_UP = null;
+let EN_UP = null, EN_GEO = null;
+function geoName(k) {
+  if (!EN_GEO) { EN_GEO = { 'États-Unis d’Amérique': 'United States', "États-Unis d'Amérique": 'United States' }; try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); for (const r of (window.GEO_COUNTRIES || [])) { const cc = String(r[3] || '').toUpperCase(); if (/^[A-Z]{2}$/.test(cc)) { try { EN_GEO[r[2]] = dn.of(cc); } catch (e) {} } } } catch (e) {} }
+  return Object.prototype.hasOwnProperty.call(EN_GEO, k) ? EN_GEO[k] : null;
+}
 function trK(k) {
   if (Object.prototype.hasOwnProperty.call(EN, k)) return EN[k];
+  const gn = geoName(k); if (gn) return gn;
   if (!EN_UP) { EN_UP = {}; for (const x in EN) EN_UP[x.toUpperCase()] = EN[x].toUpperCase(); }
   if (/[A-ZÀ-Ý]/.test(k) && k === k.toUpperCase() && Object.prototype.hasOwnProperty.call(EN_UP, k)) return EN_UP[k];
   for (const [re, rep] of RX) if (re.test(k)) return k.replace(re, rep);

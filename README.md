@@ -6,7 +6,11 @@
 
 QG ("HQ" in French) is a free desktop dashboard with a dark, cockpit-style interface. You pick the topics you care about, each one gets its own page, and everything stays on your PC.
 
-<!-- Screenshots: add docs/capture-qg.png here -->
+![Economy page: news, S&P 500 chart, markets](docs/screenshot-economy.png)
+
+![Space page: news and upcoming rocket launches](docs/screenshot-space.png)
+
+![One-minute setup: language, location map, topics](docs/screenshot-onboarding.png)
 
 ---
 
