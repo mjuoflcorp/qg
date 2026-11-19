@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://server.arcgisonline.com; connect-src 'self'">
+<title>QG 1.0</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="prompt">&gt; QG_<span id="callsign">1.0</span> <span class="dim">//</span> <span id="clock">--</span><span class="cursor">_</span></div>
+  <nav>
+    <a href="#qg" data-v="qg">[ QG ]</a>
+    <a href="#topics" data-v="topics">[ TOPICS ]</a>
+    <a href="#projets" data-v="projets">[ PROJETS ]</a>
+    <a href="#sport" data-v="sport">[ SPORT ]</a>
+    <a href="#agenda" data-v="agenda">[ AGENDA ]</a>
+    <a href="#systeme" data-v="systeme">[ SYSTÈME ]</a>
+    <a href="#reglages" data-v="reglages">[ RÉGLAGES ]</a>
+  </nav>
+  <div class="bar-r">
+    <span id="net" class="dim">● ---</span>
+    <button class="btn" id="refresh" title="Actualiser (F5)">⟳ ACTUALISER</button>
+  </div>
+</header>
+
+<div class="strip" id="strip">
+  <span>MÉTÉO <b id="s-wx">--</b></span>
+  <span>PLUIE DEMAIN <b id="s-rain">--</b></span>
+  <span>MAILS NON LUS <b id="s-mail">--</b></span>
+  <span>ACTUS <b id="s-news">--</b></span>
+  <span>PROJETS ACTIFS <b id="s-proj">--</b></span>
+  <span>PROCHAINE ÉCHÉANCE <b id="s-dl">--</b></span>
+</div>
+
+<main>
+  <!-- ================= QG ================= -->
+  <section id="v-qg" class="view qg">
+    <div class="col">
+      <div class="panel" id="p-wx">
+        <div class="ph">[ MÉTÉO // <span id="wx-loc">CALVI</span> ]<span class="ph-r" id="wx-age"></span></div>
+        <div class="pb" id="wx">CHARGEMENT…</div>
+      </div>
+      <div class="panel grow" id="p-mail">
+        <div class="ph">[ MAILS ]<span class="ph-r"><button class="lnk" id="mail-mode">PRINCIPALE</button></span></div>
+        <div class="pb scroll" id="mail">CHARGEMENT…</div>
+      </div>
+    </div>
+
+    <div class="panel globe-panel">
+      <div class="ph">[ SITUATION MONDIALE ]
+        <span class="legend" id="legend"></span><button class="lnk" id="go-home" title="Centrer le globe sur ma position">⌖ <span id="legend-home">MA POSITION</span></button>
+        <span class="ph-r" id="news-age"></span></div>
+      <div id="globe"></div>
+      <div id="globe-msg" class="globe-msg">INITIALISATION DU GLOBE…</div>
+      <div id="tip"></div>
+      <div id="focus"><button class="x" id="focus-x">[X]</button><div id="focus-in"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="ph">[ FIL D'ACTUS ]<span class="ph-r" id="news-count"></span></div>
+      <div class="tabs" id="news-tabs">
+      </div>
+      <div class="pb scroll" id="news">CHARGEMENT…</div>
+    </div>
+  </section>
+
+  <!-- ================= PROJETS ================= -->
+  <section id="v-projets" class="view projets" hidden>
+    <aside class="panel plist">
+      <div class="ph">[ PROJETS ]<span class="ph-r" id="pcount"></span></div>
+      <div class="tabs" id="pfilter">
+        <button class="on" data-s="all">TOUS</button><button data-s="encours">ACTIFS</button><button data-s="idee">IDÉES</button><button data-s="pause">PAUSE</button><button data-s="termine">FINIS</button>
+      </div>
+      <div class="pb scroll" id="plist"></div>
+      <div class="pfoot"><button class="btn amber wide" id="padd">+ NOUVEAU PROJET</button></div>
+    </aside>
+    <div class="pdetail" id="pdetail"></div>
+  </section>
+
+  <section id="v-topics" class="view topics" hidden></section>
+  <section id="v-sport" class="view sport" hidden></section>
+  <section id="v-agenda" class="view agenda" hidden></section>
+
+  <!-- ================= SYSTÈME ================= -->
+  <section id="v-systeme" class="view systeme" hidden>
+    <div class="panel"><div class="ph">[ MACHINE ]<span class="ph-r" id="sy-host"></span></div><div class="pb scroll" id="sy-info">ANALYSE…</div></div>
+    <div class="panel"><div class="ph">[ CHARGE EN DIRECT ]<span class="ph-r">2,5 s</span></div><div class="pb live" id="sy-live"></div></div>
+    <div class="panel"><div class="ph">[ STOCKAGE ]</div><div class="pb scroll" id="sy-disk">ANALYSE…</div></div>
+    <div class="panel"><div class="ph">[ RÉSEAU ]<span class="ph-r"><button class="lnk" id="sy-net-r">ACTUALISER</button></span></div><div class="pb scroll" id="sy-net">ANALYSE…</div></div>
+    <div class="panel"><div class="ph">[ LATENCE &amp; DÉBIT ]</div><div class="pb scroll" id="sy-speed"></div></div>
+    <div class="panel"><div class="ph">[ WI-FI ALENTOUR ]<span class="ph-r"><button class="lnk" id="sy-wifi-r">SCANNER</button></span></div><div class="pb scroll" id="sy-wifi"></div></div>
+    <div class="panel"><div class="ph">[ PROCESSUS ]<span class="ph-r" id="sy-pcount"></span></div>
+      <div class="tabs" id="sy-ptabs"><button class="on" data-k="cpu">PAR CPU</button><button data-k="mem">PAR MÉMOIRE</button></div>
+      <div class="pb scroll" id="sy-procs">ANALYSE…</div></div>
+    <div class="panel"><div class="ph">[ PORTS &amp; CONNEXIONS ]<span class="ph-r"><button class="lnk" id="sy-ports-r">ACTUALISER</button></span></div><div class="pb scroll" id="sy-ports">ANALYSE…</div></div>
+    <div class="panel"><div class="ph">[ APPAREILS SUR LE RÉSEAU LOCAL ]<span class="ph-r"><button class="lnk" id="sy-lan-r">SCANNER</button></span></div><div class="pb scroll" id="sy-lan">ANALYSE…</div></div>
+  </section>
+
+  <!-- ================= RÉGLAGES ================= -->
+  <section id="v-reglages" class="view reglages" hidden>
+    <aside class="panel setnav" id="setnav"></aside>
+    <div class="panel setmain"><div class="ph" id="settitle">[ RÉGLAGES ]</div><div class="pb scroll form" id="setbody"></div></div>
+  </section>
+</main>
+
+<div id="onboard" hidden></div>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="i18n.js"></script>
+<script src="geo.js"></script>
+<script src="renderer.js"></script>
+<script src="sysview.js"></script>
+<script src="common.js"></script>
+<script src="sport.js"></script>
+<script src="topics.js"></script>
+<script src="agenda.js"></script>
+<script src="mappick.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

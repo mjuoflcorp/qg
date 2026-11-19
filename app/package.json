@@ -1,0 +1,9 @@
+{
+  "name": "qg-1-0",
+  "productName": "QG 1.0",
+  "version": "1.0.1",
+  "description": "QG — tableau de bord personnel : globe des actus, météo, mails, projets, sport, drones, études, système",
+  "main": "main.js",
+  "author": "QG",
+  "license": "UNLICENSED"
+}

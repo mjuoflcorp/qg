@@ -1,0 +1,41 @@
+QG 1.0 - publication
+====================
+
+1. CONSTRUIRE
+   Double-clic sur BUILD-QG10.bat -> dossier dist\ :
+   - QG-1.0-Setup.exe    : installateur (installe dans %LOCALAPPDATA%\Programs\QG-1.0,
+                           raccourcis Bureau + menu Demarrer, desinstallation dans
+                           Parametres > Applications)
+   - QG-1.0-portable.zip : sans installation (dezipper puis lancer QG-1.0.exe)
+   - SHA256.txt          : empreintes a afficher a cote des liens de telechargement
+
+2. PUBLIER (gratuit)
+   GitHub > New repository "qg" > Releases > "Draft a new release" > tag v1.0.1
+   > glisser QG-1.0-Setup.exe, QG-1.0-portable.zip et SHA256.txt > Publish.
+   (ou itch.io, Google Drive en lien public...)
+
+3. A SAVOIR
+   - L'exe n'est pas signe numeriquement : au premier lancement, Windows SmartScreen
+     affiche "Windows a protege votre ordinateur" -> "Informations complementaires"
+     -> "Executer quand meme". Pour supprimer cet avertissement il faut un certificat
+     de signature de code (payant, ~100 a 300 EUR/an).
+   - Chaque utilisateur a ses propres donnees, chiffrees avec son compte Windows,
+     dans %APPDATA%\QG 1.0. Rien n'est envoye a un serveur.
+   - Au premier lancement, un assistant demande nom/indicatif, position (carte),
+     topics d'actu et modules. Tout se change ensuite dans REGLAGES, range en 6
+     sections : Profil & modules / Position / Actualites & topics / Mails /
+     Donnees / Securite & a propos.
+   - Topics : chaque utilisateur cree les sujets qu'il veut (mots-cles Google News
+     et/ou flux RSS perso), avec sa couleur sur le globe. 15 idees proposees.
+   - Carte de position : fonds Esri plan/satellite (gratuit, sans cle). On peut coller un
+     lien Google Maps ou des coordonnees, et ouvrir sa position dans Google Maps.
+     (Une vraie carte Google Maps integree demanderait une cle API payante.)
+
+SECURITE (ce qui est en place)
+   - Interface isolee (contextIsolation, sandbox, aucun acces Node), DevTools desactives.
+   - Politique de contenu stricte : aucun script distant, tout est embarque.
+   - Le processus principal n'accepte que les appels venant de l'interface de l'app.
+   - Navigation, fenetres, webviews et permissions (camera, micro...) bloquees.
+   - Donnees et mot de passe Gmail chiffres (DPAPI Windows). Export = fichier en clair.
+   - Requetes reseau : HTTPS uniquement, adresses locales/privees refusees, taille limitee.
+   - Une seule instance de l'app a la fois.

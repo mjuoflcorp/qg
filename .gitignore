@@ -1,0 +1,7 @@
+# fichiers générés par BUILD-QG10.bat (ne pas versionner)
+build/
+dist/
+_cache/
+_to_delete/
+app/vendor/
+*.part
