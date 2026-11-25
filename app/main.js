@@ -1,4 +1,4 @@
-// QG 1.0 — processus principal Electron (version publique, durcie)
+// QG — processus principal Electron (version perso, durcie)
 const { app, BrowserWindow, ipcMain, safeStorage, shell, Menu, dialog, session } = require('electron');
 const { pathToFileURL } = require('url');
 const path = require('path');
@@ -93,7 +93,7 @@ function summaryHtml(d) {
 function mirrorOneDrive(d) {
   if (!d.settings || !d.settings.oneDrive) return null;
   const od = oneDriveDir(); if (!od) return null;
-  const dir = path.join(od, 'QG 1.0');
+  const dir = path.join(od, 'QG');
   try { fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'qg-donnees.json'), JSON.stringify(d, null, 2), 'utf8'); fs.writeFileSync(path.join(dir, 'QG-resume.html'), summaryHtml(d), 'utf8'); return dir; } catch (e) { return null; }
 }
 let mirrorT = null;
@@ -171,14 +171,16 @@ async function reverseName(lat, lon) {
     return a.city || a.town || a.village || a.municipality || a.county || r.name || '';
   } catch (e) { return ''; }
 }
+let winStatus = 'unknown';
 function locateWindows() {
   // Service de localisation de Windows (GPS / Wi-Fi). Doit être activé : Paramètres > Confidentialité > Localisation.
-  const ps = "Add-Type -AssemblyName System.Device; $w = New-Object System.Device.Location.GeoCoordinateWatcher([System.Device.Location.GeoPositionAccuracy]::High); $w.Start(); $t=0; while(($w.Status -ne 'Ready') -and ($w.Permission -ne 'Denied') -and ($t -lt 120)){ Start-Sleep -Milliseconds 100; $t++ }; $l=$w.Position.Location; if(($w.Permission -eq 'Denied') -or $l.IsUnknown){ 'NONE' } else { $ci=[cultureinfo]::InvariantCulture; $l.Latitude.ToString($ci)+';'+$l.Longitude.ToString($ci)+';'+$l.HorizontalAccuracy.ToString($ci) }; $w.Stop()";
+  const ps = "Add-Type -AssemblyName System.Device; $w = New-Object System.Device.Location.GeoCoordinateWatcher([System.Device.Location.GeoPositionAccuracy]::High); $w.Start(); $t=0; while(($w.Status -ne 'Ready') -and ($w.Permission -ne 'Denied') -and ($t -lt 120)){ Start-Sleep -Milliseconds 100; $t++ }; $l=$w.Position.Location; if($w.Permission -eq 'Denied'){ 'DENIED' } elseif($l.IsUnknown){ 'NONE' } else { $ci=[cultureinfo]::InvariantCulture; $l.Latitude.ToString($ci)+';'+$l.Longitude.ToString($ci)+';'+$l.HorizontalAccuracy.ToString($ci) }; $w.Stop()";
   return new Promise(resolve => {
     if (process.platform !== 'win32') return resolve(null);
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps], { timeout: 20000, windowsHide: true }, (err, out) => {
       const s = String(out || '').trim().split(/\r?\n/).pop();
       const m = s && s.match(/^(-?[\d.]+);(-?[\d.]+);([\d.]+|NaN)$/);
+      if (s === 'DENIED') winStatus = 'denied'; else if (!m) winStatus = 'unavailable'; else winStatus = 'ok';
       resolve(m ? { lat: Number(m[1]), lon: Number(m[2]), accuracy: Number(m[3]) || null, source: 'windows' } : null);
     });
   });
@@ -188,13 +190,84 @@ async function locateIP() {
   try { const j = JSON.parse(await getText('https://ipapi.co/json/')); if (j.latitude != null) return { lat: j.latitude, lon: j.longitude, name: j.city || '', accuracy: 5000, source: 'ip' }; } catch (e) {}
   return null;
 }
+/* --- Localisation précise ---
+   1) Windows (API Geolocator : GPS / Wi-Fi Microsoft, ±10–100 m si la localisation Windows est activée)
+   2) Wi-Fi environnant → Google Geolocation (si clé API) ou BeaconDB (libre)
+   3) adresse IP (secours, plusieurs km) */
+const WINRT_PS = [
+  "$ErrorActionPreference='Stop'",
+  'try {',
+  'Add-Type -AssemblyName System.Runtime.WindowsRuntime',
+  "$m=[System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' } | Select-Object -First 1",
+  'function Await($op,$t){ $task=$m.MakeGenericMethod($t).Invoke($null,@($op)); if(-not $task.Wait(16000)){ throw "TIMEOUT" }; $task.Result }',
+  '$null=[Windows.Devices.Geolocation.Geolocator,Windows.Devices.Geolocation,ContentType=WindowsRuntime]',
+  '$acc=Await ([Windows.Devices.Geolocation.Geolocator]::RequestAccessAsync()) ([Windows.Devices.Geolocation.GeolocationAccessStatus])',
+  "if([string]$acc -ne 'Allowed'){ 'DENIED'; exit }",
+  '$g=New-Object Windows.Devices.Geolocation.Geolocator',
+  '$g.DesiredAccuracyInMeters=5',
+  '$p=Await ($g.GetGeopositionAsync([TimeSpan]::FromSeconds(20),[TimeSpan]::FromSeconds(14))) ([Windows.Devices.Geolocation.Geoposition])',
+  '$c=$p.Coordinate; $ci=[cultureinfo]::InvariantCulture',
+  "'OK;'+$c.Point.Position.Latitude.ToString($ci)+';'+$c.Point.Position.Longitude.ToString($ci)+';'+$c.Accuracy.ToString($ci)+';'+$c.PositionSource",
+  "} catch { 'ERR;'+$_.Exception.Message }"].join('\n');
+function locateWinRT() {
+  return new Promise(resolve => {
+    if (process.platform !== 'win32') return resolve(null);
+    const enc = Buffer.from(WINRT_PS, 'utf16le').toString('base64');
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', enc], { timeout: 25000, windowsHide: true }, (err, out) => {
+      const s = String(out || '').trim().split(/\r?\n/).pop() || '';
+      if (s === 'DENIED') { winStatus = 'denied'; return resolve(null); }
+      const m = s.match(/^OK;(-?[\d.]+);(-?[\d.]+);([\d.]+);(\w+)/);
+      if (!m) { if (winStatus !== 'denied') winStatus = 'unavailable'; return resolve(null); }
+      winStatus = 'ok';
+      resolve({ lat: Number(m[1]), lon: Number(m[2]), accuracy: Number(m[3]) || null, source: 'windows', via: m[4] });
+    });
+  });
+}
+async function postJSON(url, body) {
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': UA }, body: JSON.stringify(body), signal: ctrl.signal });
+    const txt = await r.text(); if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + txt.slice(0, 120));
+    return JSON.parse(txt);
+  } finally { clearTimeout(t); }
+}
+const keyFile = () => path.join(app.getPath('userData'), 'qg-keys.json');
+function readGeoKey() { try { const c = JSON.parse(fs.readFileSync(keyFile(), 'utf8')); return c.gkey && safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(Buffer.from(c.gkey, 'base64')) : ''; } catch (e) { return ''; } }
+function writeGeoKey(k) {
+  k = String(k || '').trim(); if (k && !/^[A-Za-z0-9_\-]{20,60}$/.test(k)) throw new Error('Clé API invalide');
+  if (k && !safeStorage.isEncryptionAvailable()) throw new Error('Chiffrement Windows indisponible.');
+  fs.mkdirSync(path.dirname(keyFile()), { recursive: true });
+  fs.writeFileSync(keyFile(), JSON.stringify(k ? { gkey: safeStorage.encryptString(k).toString('base64') } : {}), 'utf8');
+}
+let lastWifi = null;
+async function locateWifi() {
+  let scan; try { scan = await sys.wifiScan(); } catch (e) { return null; }
+  const aps = (scan.nets || []).filter(n => /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(n.bssid)).slice(0, 20)
+    .map(n => ({ macAddress: n.bssid.toLowerCase(), signalStrength: Math.round(n.signal / 2 - 100) }));
+  lastWifi = aps.length;
+  if (aps.length < 2) return null;
+  const key = readGeoKey();
+  try {
+    if (key) { const j = await postJSON('https://www.googleapis.com/geolocation/v1/geolocate?key=' + encodeURIComponent(key), { considerIp: false, wifiAccessPoints: aps });
+      if (j.location) return { lat: j.location.lat, lon: j.location.lng, accuracy: j.accuracy, source: 'wifi', via: 'Google' }; }
+  } catch (e) {}
+  try { const j = await postJSON('https://api.beacondb.net/v1/geolocate', { considerIp: false, wifiAccessPoints: aps });
+    if (j.location) return { lat: j.location.lat, lon: j.location.lng, accuracy: j.accuracy, source: 'wifi', via: 'BeaconDB' }; } catch (e) {}
+  return null;
+}
 async function locate() {
-  let p = await locateWindows();
-  if (!p) p = await locateIP();
-  if (!p) throw new Error('Position introuvable (localisation Windows désactivée et réseau indisponible).');
-  if (!p.name) p.name = await reverseName(p.lat, p.lon);
-  p.at = new Date().toISOString();
-  return p;
+  const [win, ip] = await Promise.all([locateWinRT().then(r => r || locateWindows()), locateIP()]);
+  let best = win && win.via !== 'IPAddress' ? win : null;
+  if (!best || !(best.accuracy <= 150)) {
+    const wf = await locateWifi();
+    if (wf && (!best || wf.accuracy < best.accuracy)) best = wf;
+  }
+  if (!best) best = win || ip;
+  if (!best) throw new Error('Position introuvable : active la localisation Windows (Paramètres › Confidentialité › Localisation).');
+  best.winStatus = winStatus; best.wifiCount = lastWifi;
+  if (!best.name) best.name = await reverseName(best.lat, best.lon);
+  best.at = new Date().toISOString();
+  return best;
 }
 
 /* ---------------- Gmail (IMAP minimal, mot de passe d'application) ---------------- */
@@ -329,6 +402,18 @@ app.whenReady().then(() => {
   handle('data:path', () => dataFile());
   handle('net:text', (e, url) => getText(url));
   handle('net:weather', (e, lat, lon) => getWeather(Number(lat), Number(lon)));
+  handle('net:flightwx', async (e, lat, lon) => {
+    lat = Number(lat); lon = Number(lon); if (!isFinite(lat) || !isFinite(lon)) throw new Error('Coordonnées invalides');
+    const q = `latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&timezone=auto`;
+    const fx = JSON.parse(await getText(`https://api.open-meteo.com/v1/forecast?${q}&forecast_days=7&wind_speed_unit=kmh`
+      + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl,cloud_cover,visibility,is_day,precipitation'
+      + '&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,precipitation_probability,precipitation,weather_code,visibility,cloud_cover,cloud_cover_low,wind_speed_10m,wind_gusts_10m,wind_direction_10m,wind_speed_80m,wind_speed_120m,pressure_msl,is_day'
+      + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,sunrise,sunset,uv_index_max'));
+    let marine = null; try { marine = JSON.parse(await getText(`https://marine-api.open-meteo.com/v1/marine?${q}&forecast_days=3&current=wave_height,sea_surface_temperature&hourly=wave_height,wave_period,wave_direction,swell_wave_height,sea_surface_temperature,sea_level_height_msl`)); } catch (err) {}
+    if (marine && marine.hourly && !(marine.hourly.wave_height || []).some(v => v != null)) marine = null;
+    let kp = null; try { kp = JSON.parse(await getText('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json')); } catch (err) {}
+    return { fx, marine, kp, lat, lon, at: new Date().toISOString() };
+  });
   handle('mail:config:get', () => { const c = readMailCfg(); return { email: c.email, hasPassword: !!c.password }; });
   handle('mail:config:set', (e, cfg) => { writeMailCfg(cfg || {}); return true; });
   handle('mail:fetch', async (e, query) => {
@@ -378,6 +463,9 @@ handle('geo:reverse', (e, lat, lon) => { lat = Number(lat); lon = Number(lon); i
   handle('backup:mirror', () => mirrorOneDrive(loadData()));
   handle('open-path', (e, p) => { if (p && (p.startsWith(app.getPath('userData')) || (oneDriveDir() && p.startsWith(oneDriveDir())))) shell.openPath(p); });
   handle('open', (e, url) => { if (/^https:\/\//i.test(url)) shell.openExternal(url); });
+  handle('open-locsettings', () => shell.openExternal('ms-settings:privacy-location'));
+  handle('geo:key', () => ({ hasKey: !!readGeoKey() }));
+  handle('geo:key:set', (e, k) => { writeGeoKey(k); return true; });
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

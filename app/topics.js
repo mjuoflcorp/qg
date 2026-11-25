@@ -75,11 +75,33 @@
   }
 
   /* ---------- colonne actus ---------- */
+  let impactOnly = false;
+  const fxChips = (fx) => {
+    const M = window.MARCHE, seen = new Set(), out = [];
+    for (const f of fx) {
+      const lab = f.kind === 'sect' ? M.SECT[f.key] : f.kind === 'stock' ? (M.CAC40.find(c => c.t === f.key) || {}).n : 'CAC 40';
+      const k = lab + f.dir; if (seen.has(k)) continue; seen.add(k);
+      out.push(el('span', { class: 'ichip ' + (f.dir > 0 ? 'up' : f.dir < 0 ? 'down' : ''), title: f.why + ' · ' + f.h, text: lab + (f.dir > 0 ? ' ▲' : f.dir < 0 ? ' ▼' : '') }));
+    }
+    return out.length ? el('div', { class: 'ichips' }, ...out.slice(0, 7)) : null;
+  };
   function renderNewsCol(t) {
     const box = $('#tp-news'); if (!box) return;
-    const L = S.news.filter(n => n.cat === t.id);
+    let L = S.news.filter(n => n.cat === t.id);
+    if (t.w.impact && window.MARCHE) {
+      // toutes les actus chargées (monde, géopolitique, défense…) qui touchent l'économie
+      const seen = new Set(L.map(n => n.id));
+      for (const n of S.news) if (!seen.has(n.id) && MARCHE.analyze(n).length) { L.push(n); seen.add(n.id); }
+      L = L.map(n => ({ n, fx: MARCHE.analyze(n) })).filter(x => !impactOnly || x.fx.length).sort((a, b) => new Date(b.n.date) - new Date(a.n.date));
+      const tog = el('div', { class: 'row', style: 'margin:0 0 6px' }, el('button', { class: 'lnk', text: impactOnly ? '◉ ACTUS À IMPACT SEULEMENT' : '○ ACTUS À IMPACT SEULEMENT', onclick: () => { impactOnly = !impactOnly; renderNewsCol(t); } }), el('span', { class: 'dim', text: L.length + ' actus' }));
+      box.replaceChildren(tog, ...L.slice(0, 80).map(({ n, fx }) => newsItem(n, fxChips(fx))));
+      return;
+    }
     if (!L.length) { box.replaceChildren(el('div', { class: 'empty', text: S.newsAt ? 'AUCUNE ACTU RÉCENTE — AJOUTE DES MOTS-CLÉS OU DES FLUX (⚙ CONFIGURER)' : 'CHARGEMENT…' })); return; }
-    box.replaceChildren(...L.map(n => {
+    box.replaceChildren(...L.map(n => newsItem(n)));
+  }
+  function newsItem(n, chips) {
+    {
       const more = el('div', { class: 'tn-more', hidden: true },
         n.desc ? el('div', { text: n.desc }) : null,
         el('div', { class: 'row', style: 'margin-top:6px' },
@@ -87,8 +109,8 @@
           n.lat != null ? el('button', { class: 'btn small', text: '⌖ VOIR SUR LE GLOBE', onclick: (e) => { e.stopPropagation(); location.hash = '#qg'; setTimeout(() => selectNews(n), 150); } }) : null));
       return el('div', { class: 'tnews', onclick: () => { more.hidden = !more.hidden; } },
         el('div', { class: 'meta' }, el('span', { text: n.source }), n.place ? el('span', { text: '⌖ ' + n.place }) : null, el('span', { style: 'margin-left:auto', text: shortTime(n.date) })),
-        el('div', { class: 'title', text: n.title }), more);
-    }));
+        el('div', { class: 'title', text: n.title }), chips || null, more);
+    }
   }
 
   /* ---------- modules ---------- */
@@ -100,8 +122,12 @@
     const box = $('#tp-w'); if (!box) return;
     const w = t.w, parts = [];
     if (detail) parts.push(detailCard(t, force));
+    if (w.cac) { const b = el('div', { id: 'cac-live' }, loading()); cacLive(b, force).catch(e => fail(b, e)); parts.push(card('CAC 40 — EN DIRECT', b)); }
+    if (w.impact) { const b = el('div', {}); try { impactCard(b); } catch (e) { fail(b, e); } parts.push(card('LECTURE DU MARCHÉ — IMPACT DES ACTUS', b)); }
+    if (w.cac) parts.push(asyncCard('LES 40 VALEURS DU CAC', (b) => cacComp(b, force)));
     if (w.markets) parts.push(marketsCard(t, force));
     if (w.watch.length || w.markets || w.watchOn) parts.push(watchCard(t, force));
+    if (w.sea) parts.push(asyncCard('CONDITIONS MER & PLONGÉE', (b) => sea(b, force)));
     if (w.launches) parts.push(asyncCard('PROCHAINS LANCEMENTS SPATIAUX', (b) => launches(b, force)));
     if (w.quakes) parts.push(asyncCard('SÉISMES MAGNITUDE 4,5+ (24 H)', (b) => quakes(b, force)));
     if (w.air) parts.push(asyncCard('QUALITÉ DE L’AIR & POLLENS // ' + (S.data.settings.location.name || '').toUpperCase(), (b) => air(b, force)));
@@ -173,6 +199,94 @@
       sugg ? el('div', { class: 'sect', text: 'IDÉES — ' + C.n.toUpperCase() }) : null, sugg), el('span', { class: 'dim', text: w.watch.length + ' / 20' }));
   }
 
+  /* ---------- Économie & CAC 40 ---------- */
+  const parisNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const isOpen = () => { const d = parisNow(), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() >= 1 && d.getDay() <= 5 && m >= 540 && m < 1050; };
+  async function cacLive(b, force) {
+    const q = await quote('^FCHI', '1J', force), up = q.chg == null || q.chg >= 0;
+    const c = el('canvas', { style: 'width:100%;height:150px;display:block' });
+    b.replaceChildren(
+      el('div', { class: 'qprice' }, el('span', { text: nf(q.price, 2) }), chgEl(q.chg), el('span', { class: isOpen() ? 'good' : 'dim', text: isOpen() ? '● SÉANCE OUVERTE' : '○ MARCHÉ FERMÉ' }),
+        el('span', { class: 'dim', text: 'MAJ ' + pad(new Date().getHours()) + ':' + pad(new Date().getMinutes()) })),
+      c, el('div', { class: 'note', text: 'Clôture précédente ' + nf(q.prev, 2) + ' (ligne pointillée). Yahoo Finance, différé ~15 min, actualisé chaque minute. Séance : 9 h 00 – 17 h 30.' }));
+    requestAnimationFrame(() => lineChart(c, q.pts, { color: up ? '#6cc47f' : '#d0574a', noDots: true, target: q.prev, targetLabel: 'VEILLE', yFmt: (v) => nf(v, 0), xFmt: (x) => { const d = new Date(x); return pad(d.getHours()) + ':' + pad(d.getMinutes()); } }));
+    const s = $('#s-cac'); if (s && q.price != null) { s.textContent = nf(q.price, 0) + ' ' + (q.chg >= 0 ? '+' : '') + nf(q.chg) + ' %'; s.className = q.chg >= 0 ? 'ok' : 'neg'; }
+  }
+  let compSort = 'chg';
+  async function cacComp(b, force, onPick) {
+    onPick = onPick || ((sym) => showDetail(cur(), sym));
+    const M = window.MARCHE;
+    const res = await Promise.all(M.CAC40.map(c => quote(c.t, '1J', force).then(q => ({ c, q })).catch(() => ({ c, q: null }))));
+    const v = (x) => x.q && x.q.chg != null ? x.q.chg : -999;
+    const L = res.sort((a, c) => compSort === 'chg' ? v(c) - v(a) : a.c.n.localeCompare(c.c.n));
+    const up = L.filter(x => x.q && x.q.chg > 0).length, dn = L.filter(x => x.q && x.q.chg < 0).length;
+    b.replaceChildren(el('div', { class: 'row', style: 'margin-bottom:6px' }, el('span', { class: 'good', text: up + ' ▲' }), el('span', { class: 'badc', text: dn + ' ▼' }),
+        el('button', { class: 'lnk', text: compSort === 'chg' ? 'TRIER PAR NOM' : 'TRIER PAR VARIATION', onclick: () => { compSort = compSort === 'chg' ? 'nom' : 'chg'; cacComp(b, false, onPick); } })),
+      el('div', { class: 'cgrid' }, ...L.map(({ c, q }) => el('div', { class: 'crow', title: M.SECT[c.s] + ' — clic : graphique', onclick: () => onPick(c.t) },
+        el('span', { class: 'cn', text: c.n }), el('span', { class: 'cp', text: q ? nf(q.price) : '--' }), chgEl(q && q.chg)))),
+      el('div', { class: 'note', text: 'Composition indicative (Euronext la révise chaque trimestre). Clic sur une valeur : graphique détaillé.' }));
+  }
+  function impactCard(b, onPick) {
+    onPick = onPick || ((sym) => showDetail(cur(), sym));
+    const M = window.MARCHE, A = M.aggregate(S.news || []);
+    const sects = Object.entries(A.sect).filter(s => Math.abs(s[1].score) >= 0.2).sort((a, c) => Math.abs(c[1].score) - Math.abs(a[1].score));
+    const mx = Math.max(1, ...sects.map(s => Math.abs(s[1].score)));
+    const top = (o) => Object.entries(o).sort((a, c) => c[1] - a[1]).slice(0, 2).map(x => x[0].toLowerCase()).join(', ');
+    const pos = sects.filter(s => s[1].score > 0.3).slice(0, 3), neg = sects.filter(s => s[1].score < -0.3).slice(0, 3), mk = A.market.score;
+    const read = [mk > 0.5 ? 'Climat d’actus plutôt porteur pour la Bourse de Paris.' : mk < -0.5 ? 'Climat d’actus plutôt défavorable pour la Bourse de Paris (' + [...new Set(A.market.why)].slice(0, 2).join(', ').toLowerCase() + ').' : 'Pas de signal net sur l’ensemble du marché.'];
+    if (pos.length) read.push('Secteurs soutenus : ' + pos.map(s => M.SECT[s[0]] + ' (' + top(s[1].why) + ')').join(' ; ') + '.');
+    if (neg.length) read.push('Secteurs sous pression : ' + neg.map(s => M.SECT[s[0]] + ' (' + top(s[1].why) + ')').join(' ; ') + '.');
+    const hz = {}; for (const h of A.hits) for (const f of h.fx) hz[f.h] = (hz[f.h] || 0) + 1;
+    if (A.hits.length) read.push(`${A.hits.length} actus analysées ont un effet probable — ` + Object.entries(hz).map(([k, n]) => n + ' à ' + k).join(', ') + '.');
+    const st = M.CAC40.map(c => { const d = A.stock[c.t], sc = (d ? d.score * 2 : 0) + ((A.sect[c.s] || {}).score || 0); return { c, sc, d }; })
+      .filter(x => Math.abs(x.sc) >= 0.6 || (x.d && x.d.n)).sort((a, c) => Math.abs(c.sc) - Math.abs(a.sc)).slice(0, 10);
+    b.replaceChildren(
+      el('div', { class: 'lecture' }, ...read.map(t => el('p', { text: t }))),
+      el('div', { class: 'sect', text: 'BAROMÈTRE DES SECTEURS (ACTUS DES 48 H, LES PLUS RÉCENTES COMPTENT PLUS)' }),
+      sects.length ? el('div', { class: 'baro' }, ...sects.slice(0, 10).map(([k, v]) => el('div', { class: 'brow', title: Object.keys(v.why).join(' · ') },
+        el('span', { class: 'bl', text: M.SECT[k] }), el('span', { class: 'bbar' }, el('i', { class: v.score >= 0 ? 'p' : 'n', style: `width:${Math.abs(v.score) / mx * 50}%;${v.score >= 0 ? 'left:50%' : 'right:50%'}` })),
+        el('span', { class: 'bs ' + (v.score >= 0 ? 'good' : 'badc'), text: (v.score >= 0 ? '+' : '') + v.score.toFixed(1) }), el('span', { class: 'bw dim', text: top(v.why) }))))
+        : el('div', { class: 'dim', text: 'Aucun signal détecté dans les actus récentes.' }),
+      el('div', { class: 'sect', text: 'ACTIONS À SURVEILLER' }),
+      st.length ? el('div', { class: 'wlist' }, ...st.map(x => {
+        const why = [...(x.d ? Object.keys(x.d.why) : []), ...Object.keys((A.sect[x.c.s] || { why: {} }).why)].slice(0, 3).join(' · ');
+        const r = el('div', { class: 'wrow', onclick: () => onPick(x.c.t) }, el('b', { style: 'width:150px', text: x.c.n }),
+          el('span', { class: x.sc > 0.3 ? 'good' : x.sc < -0.3 ? 'badc' : 'dim', style: 'width:22px', text: x.sc > 0.3 ? '▲' : x.sc < -0.3 ? '▼' : '•' }),
+          el('span', { class: 'dim', style: 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', text: why }), el('span', { class: 'wc' }));
+        quote(x.c.t, '1J').then(q => r.lastChild.replaceChildren(chgEl(q.chg))).catch(() => {}); return r; }))
+        : el('div', { class: 'dim', text: 'Rien de particulier.' }),
+      el('div', { class: 'note', text: 'Lecture automatique par règles (thèmes macro, sociétés citées, vocabulaire de hausse/baisse) sur toutes les actus chargées. C’est un repère, pas un conseil d’investissement : le marché anticipe souvent les nouvelles.' }));
+  }
+  // direct : CAC 40 rafraîchi chaque minute sur la page, et dans le bandeau toutes les 2 min
+  setInterval(() => { const v = $('#v-topics'), b = $('#cac-live'); if (v && !v.hidden && b && !cfgOpen) cacLive(b, true).catch(() => {}); }, 60e3);
+  async function stripCac() { try { const q = await quote('^FCHI', '1J', true), x = $('#s-cac'); if (x && q.price != null) { x.textContent = nf(q.price, 0) + ' ' + (q.chg >= 0 ? '+' : '') + nf(q.chg) + ' %'; x.className = q.chg >= 0 ? 'ok' : 'neg'; } } catch (e) {} }
+  setTimeout(stripCac, 5000); setInterval(stripCac, 120e3);
+
+  window.QGT = { quote, nf, chgEl, spark, curS, RANGES, COUNTRIES, WORLD, getJSON, okSym, cacLive, cacComp, impactCard, isOpen, fxChips, newsItem };
+
+  async function sea(b, force) {
+    const st = S.data.settings, pts = [['ICI', st.location], ['CIBLE', st.target]].filter(x => x[1] && x[1].lat != null);
+    const rows = await Promise.all(pts.map(async ([lab, loc]) => {
+      try {
+        const w = await getFlightWx(force, loc), m = w.marine, h = w.fx.hourly;
+        if (!m) return el('div', { class: 'seab' }, el('div', { class: 'sect', text: lab + ' — ' + (loc.name || '').toUpperCase() }), el('div', { class: 'dim', text: 'Pas de données marines (trop loin de la mer).' }));
+        const mh = m.hourly, now = Date.now(); let i0 = mh.time.findIndex(t => new Date(t) >= now - 3600e3); if (i0 < 0) i0 = 0;
+        const j = h.time.indexOf(mh.time[i0]);
+        const wave = mh.wave_height[i0], per = mh.wave_period && mh.wave_period[i0], sst = mh.sea_surface_temperature && mh.sea_surface_temperature[i0], wind = j >= 0 ? h.wind_speed_10m[j] : null, gust = j >= 0 ? h.wind_gusts_10m[j] : null;
+        const v = wave == null ? ['--', ''] : wave <= 0.5 && (wind || 0) <= 20 ? ['BON', 'good'] : wave <= 1 && (wind || 0) <= 30 ? ['MOYEN', 'mid'] : ['NON', 'badc'];
+        const lv = (mh.sea_level_height_msl || []).slice(i0, i0 + 24).filter(x => x != null);
+        const next = []; for (let k = i0; k < Math.min(mh.time.length, i0 + 24); k += 3) next.push(el('div', { class: 'seah' }, el('small', { text: mh.time[k].slice(11, 13) + 'h' }), el('b', { text: mh.wave_height[k] != null ? mh.wave_height[k].toFixed(1) : '--' })));
+        return el('div', { class: 'seab' }, el('div', { class: 'sect' }, lab + ' — ' + (loc.name || '').toUpperCase() + '  ', el('b', { class: v[1], text: 'PLONGÉE : ' + v[0] })),
+          el('div', { class: 'bigs', style: 'grid-template-columns:repeat(4,1fr)' },
+            el('div', {}, el('div', { class: 'k', text: 'HOULE' }), el('div', { class: 'v', text: (wave != null ? wave.toFixed(1) : '--') + ' m' + (per ? ' / ' + Math.round(per) + ' s' : '') })),
+            el('div', {}, el('div', { class: 'k', text: 'EAU' }), el('div', { class: 'v', text: sst != null ? Math.round(sst) + '°' : '--' })),
+            el('div', {}, el('div', { class: 'k', text: 'VENT / RAF.' }), el('div', { class: 'v', text: wind != null ? Math.round(wind) + ' / ' + Math.round(gust) : '--' })),
+            el('div', {}, el('div', { class: 'k', text: 'MARÉE 24 H' }), el('div', { class: 'v', text: lv.length ? Math.round((Math.max(...lv) - Math.min(...lv)) * 100) + ' cm' : '--' }))),
+          el('div', { class: 'seaw' }, el('span', { class: 'dim', text: 'HOULE (m) → ' }), ...next));
+      } catch (e) { return el('div', { class: 'dim', text: lab + ' : indisponible (' + errMsg(e) + ')' }); }
+    }));
+    b.replaceChildren(...rows, el('div', { class: 'note', text: 'BON = houle ≤ 0,5 m et vent ≤ 20 km/h. Toujours avec un binôme et une bouée. Source : Open-Meteo Marine.' }));
+  }
   async function launches(b, force) {
     const j = await getJSON('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=6', 3600e3, force);
     const L = (j.results || []).filter(x => new Date(x.net) > Date.now() - 3600e3);

@@ -16,6 +16,16 @@ const errMsg = (e) => String((e && e.message) || e).replace(/^Error invoking rem
 
 /* météo horaire (vol + mer), partagée, cache 30 min */
 // Kp max prévu dans les prochaines heures (NOAA SWPC)
+/* météo détaillée (vol, mer, 7 jours) pour un point, cache 20 min par position */
+const fwxCache = {}, fwxPending = {};
+async function getFlightWx(force, loc) {
+  loc = loc || S.data.settings.location;
+  const k = (+loc.lat).toFixed(2) + ',' + (+loc.lon).toFixed(2), c = fwxCache[k];
+  if (!force && c && Date.now() - new Date(c.at).getTime() < 20 * 60e3) return c;
+  if (fwxPending[k]) return fwxPending[k];
+  fwxPending[k] = window.qg.flightWx(loc.lat, loc.lon).then(r => { fwxCache[k] = r; return r; }).finally(() => { delete fwxPending[k]; });
+  return fwxPending[k];
+}
 function kpAt(kp, date) {
   if (!Array.isArray(kp)) return null;
   let best = null;
@@ -52,7 +62,7 @@ function lineChart(canvas, pts, opts = {}) {
   const xf = opts.xFmt || ((x) => fmtDate(new Date(x).toISOString(), false).slice(0, 5));
   if (!opts.noX) g.fillText(xf(x0), L, h - 4);
   const lbl = opts.noX ? '' : xf(x1); g.fillText(lbl, w - R - g.measureText(lbl).width, h - 4);
-  if (opts.target != null) { g.strokeStyle = '#6cc47f'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(L, Y(opts.target)); g.lineTo(w - R, Y(opts.target)); g.stroke(); g.setLineDash([]); g.fillStyle = '#6cc47f'; g.fillText('OBJ', w - R - 26, Y(opts.target) - 4); }
+  if (opts.target != null) { g.strokeStyle = '#6cc47f'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(L, Y(opts.target)); g.lineTo(w - R, Y(opts.target)); g.stroke(); g.setLineDash([]); g.fillStyle = '#6cc47f'; g.fillText(opts.targetLabel || 'OBJ', w - R - g.measureText(opts.targetLabel || 'OBJ').width - 2, Y(opts.target) - 4); }
   g.strokeStyle = opts.color || '#e4a83a'; g.lineWidth = 1.6; g.beginPath();
   pts.forEach((p, i) => { const x = X(+p.x), y = Y(p.y); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
   if (!opts.noDots) { g.fillStyle = opts.color || '#e4a83a'; pts.forEach(p => { g.fillRect(X(+p.x) - 2, Y(p.y) - 2, 4, 4); }); }

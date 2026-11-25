@@ -3,20 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://server.arcgisonline.com; connect-src 'self'">
-<title>QG 1.0</title>
+<title>QG</title>
 <link rel="stylesheet" href="vendor/leaflet.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="splash"></div>
 <header class="bar">
   <div class="prompt">&gt; QG_<span id="callsign">1.0</span> <span class="dim">//</span> <span id="clock">--</span><span class="cursor">_</span></div>
   <nav>
-    <a href="#qg" data-v="qg">[ QG ]</a>
-    <a href="#topics" data-v="topics">[ TOPICS ]</a>
-    <a href="#projets" data-v="projets">[ PROJETS ]</a>
-    <a href="#sport" data-v="sport">[ SPORT ]</a>
-    <a href="#agenda" data-v="agenda">[ AGENDA ]</a>
-    <a href="#systeme" data-v="systeme">[ SYSTÈME ]</a>
+    <a href="#meteo" data-v="meteo">[ MÉTÉO / DRONE ]</a>
+    <a href="#qg" data-v="qg">[ ACTU MILITAIRE ]</a>
+    <a href="#terminal" data-v="terminal">[ TERMINAL ]</a>
     <a href="#reglages" data-v="reglages">[ RÉGLAGES ]</a>
   </nav>
   <div class="bar-r">
@@ -27,29 +25,44 @@
 
 <div class="strip" id="strip">
   <span>MÉTÉO <b id="s-wx">--</b></span>
+  <span>CIBLE <b id="s-tg">--</b></span>
+  <span>CAC 40 <b id="s-cac">--</b></span>
   <span>PLUIE DEMAIN <b id="s-rain">--</b></span>
-  <span>MAILS NON LUS <b id="s-mail">--</b></span>
-  <span>ACTUS <b id="s-news">--</b></span>
-  <span>PROJETS ACTIFS <b id="s-proj">--</b></span>
-  <span>PROCHAINE ÉCHÉANCE <b id="s-dl">--</b></span>
+  <span>ACTUS MILITAIRES <b id="s-news">--</b></span>
+  <span hidden>MAILS NON LUS <b id="s-mail">--</b></span>
+  <span hidden>PROJETS ACTIFS <b id="s-proj">--</b></span>
+  <span hidden>PROCHAINE ÉCHÉANCE <b id="s-dl">--</b></span>
 </div>
 
 <main>
   <!-- ================= QG ================= -->
   <section id="v-qg" class="view qg">
     <div class="col">
-      <div class="panel" id="p-wx">
-        <div class="ph">[ MÉTÉO // <span id="wx-loc">CALVI</span> ]<span class="ph-r" id="wx-age"></span></div>
+      <div class="panel grow">
+        <div class="ph">[ ARMÉES FRANÇAISES ]<span class="ph-r" id="br-count"></span></div>
+        <div class="pb scroll" id="br-list">CHARGEMENT…</div>
+      </div>
+      <div class="panel">
+        <div class="ph">[ SOURCES ]</div>
+        <div class="pb" id="br-src"></div>
+      </div>
+      <div hidden>      <div class="panel" id="p-wx">
+        <div class="ph">[ MÉTÉO // <span id="wx-loc">--</span> ]<span class="ph-r" id="wx-age"></span></div>
         <div class="pb" id="wx">CHARGEMENT…</div>
+      </div>
+      <div class="panel" id="p-tg">
+        <div class="ph">[ CIBLE // <span id="tg-name">--</span> ]<span class="ph-r"><a class="lnk" href="#meteo">DÉTAIL →</a></span></div>
+        <div class="pb" id="tg-box">CHARGEMENT…</div>
       </div>
       <div class="panel grow" id="p-mail">
         <div class="ph">[ MAILS ]<span class="ph-r"><button class="lnk" id="mail-mode">PRINCIPALE</button></span></div>
         <div class="pb scroll" id="mail">CHARGEMENT…</div>
       </div>
     </div>
+    </div>
 
     <div class="panel globe-panel">
-      <div class="ph">[ SITUATION MONDIALE ]
+      <div class="ph">[ ACTU MILITAIRE FRANÇAISE ]
         <span class="legend" id="legend"></span><button class="lnk" id="go-home" title="Centrer le globe sur ma position">⌖ <span id="legend-home">MA POSITION</span></button>
         <span class="ph-r" id="news-age"></span></div>
       <div id="globe"></div>
@@ -81,7 +94,13 @@
 
   <section id="v-topics" class="view topics" hidden></section>
   <section id="v-sport" class="view sport" hidden></section>
-  <section id="v-agenda" class="view agenda" hidden></section>
+  <section id="v-meteo" class="view meteox" hidden>
+    <div class="subbar" id="mx-bar"><button class="sb on" data-p="wx">MÉTÉO — ICI / CIBLE</button><button class="sb" data-p="dr">DRONES — GO/NO-GO · CARNET DE VOL · BATTERIES</button></div>
+    <div class="meteo" id="wx-pane"></div>
+    <div class="drones" id="v-drones" hidden></div>
+  </section>
+  <section id="v-terminal" class="view terminal" hidden></section>
+  <section id="v-perso" class="view perso" hidden></section>
 
   <!-- ================= SYSTÈME ================= -->
   <section id="v-systeme" class="view systeme" hidden>
@@ -106,6 +125,7 @@
 </main>
 
 <div id="onboard" hidden></div>
+<script src="splash.js"></script>
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
@@ -116,9 +136,15 @@
 <script src="sysview.js"></script>
 <script src="common.js"></script>
 <script src="sport.js"></script>
+<script src="marche.js"></script>
 <script src="topics.js"></script>
-<script src="agenda.js"></script>
+<script src="terminal.js"></script>
+<script src="drones.js"></script>
+<script src="studydata.js"></script>
+<script src="perso.js"></script>
+<script src="meteo.js"></script>
 <script src="mappick.js"></script>
 <script src="settings.js"></script>
+<script src="keynav.js"></script>
 </body>
 </html>

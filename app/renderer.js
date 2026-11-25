@@ -13,6 +13,8 @@ function el(tag, attrs = {}, ...kids) {
     else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
     else e.setAttribute(k, v === true ? '' : v);
   }
+  // éléments cliquables non natifs : atteignables au clavier (flèches + Entrée)
+  if (attrs.onclick && !/^(button|a|input|select|textarea|label|option)$/i.test(tag) && !e.hasAttribute('tabindex')) { e.tabIndex = 0; e.setAttribute('role', 'button'); }
   for (const c of kids.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(String(c)));
   return e;
 }
@@ -83,14 +85,40 @@ const TOPIC_PRESETS = [
     links: [Lk('IFRI', 'https://www.ifri.org/'), Lk('Le Grand Continent', 'https://legrandcontinent.eu/fr/'), Lk('Foreign Affairs', 'https://www.foreignaffairs.com/')] },
   { en: { name: 'Environment', keywords: 'climate OR environment OR energy', feeds: [F('The Guardian Environment', 'https://www.theguardian.com/environment/rss'), F('BBC Science & Environment', 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml')], links: [Lk('Copernicus Climate', 'https://climate.copernicus.eu/'), Lk('NASA Climate', 'https://climate.nasa.gov/'), Lk('Carbon Brief', 'https://www.carbonbrief.org/')] }, kind: 'env', name: 'Environnement', color: '#5fd38a', keywords: 'climat OR environnement OR énergie', w: { air: true },
     feeds: [F('Le Monde Planète', 'https://www.lemonde.fr/planete/rss_full.xml'), F('The Guardian Environment', 'https://www.theguardian.com/environment/rss')],
-    links: [Lk('Reporterre', 'https://reporterre.net/'), Lk('Copernicus Climat', 'https://climate.copernicus.eu/'), Lk('Météo-France', 'https://meteofrance.com/')] }
+    links: [Lk('Reporterre', 'https://reporterre.net/'), Lk('Copernicus Climat', 'https://climate.copernicus.eu/'), Lk('Météo-France', 'https://meteofrance.com/')] },
+  { kind: 'mil-def', scope: 'mil', name: 'Défense', color: '#d8d4c8', keywords: '"ministère des Armées" OR "armées françaises" OR "chef d\'état-major" OR "état-major des armées"',
+    feeds: [F('Zone Militaire (OPEX360)', 'https://www.opex360.com/feed/'), F('Forces Operations Blog', 'https://www.forcesoperations.com/feed/'), F('Meta-Defense', 'https://meta-defense.fr/feed/')], links: [] },
+  { kind: 'mil-terre', scope: 'mil', name: 'Armée de Terre', color: '#6cc47f', keywords: '"armée de Terre" OR "Légion étrangère" OR régiment parachutiste OR "brigade parachutiste"', links: [] },
+  { kind: 'mil-mer', scope: 'mil', name: 'Marine', color: '#4fa8ff', keywords: '"Marine nationale" OR porte-avions "Charles de Gaulle" OR frégate française OR "sous-marin" Marine nationale', links: [] },
+  { kind: 'mil-air', scope: 'mil', name: 'Air & Espace', color: '#8fb3ff', keywords: '"armée de l\'Air et de l\'Espace" OR Rafale armée OR "Commandement de l\'espace"', links: [] },
+  { kind: 'mil-ops', scope: 'mil', name: 'Opérations', color: '#ff5a3c', keywords: '"forces françaises" OR "militaires français" OR OPEX OR "mission Aigle" OR "flanc est" OR "opération Chammal"', links: [] },
+  { kind: 'mil-drones', scope: 'mil', name: 'Drones & innovation', color: '#ff8a3d', keywords: 'drones armée française OR "drone militaire" France OR "Agence de l\'innovation de défense" OR munitions téléopérées', links: [] },
+  { kind: 'mil-ind', scope: 'mil', name: 'Industrie & DGA', color: '#f2d15c', keywords: 'DGA OR "industrie de défense" OR "Dassault Aviation" OR "Naval Group" OR KNDS OR "loi de programmation militaire"', links: [] },
+  { kind: 'marche-fr', scope: 'eco', name: 'Économie & CAC 40', color: '#9fe870', keywords: 'CAC 40 OR Bourse de Paris OR BCE OR inflation OR croissance France OR budget France OR Euronext', w: { cac: true, impact: true },
+    feeds: [F('Le Monde Économie', 'https://www.lemonde.fr/economie/rss_full.xml'), F('France 24 Économie', 'https://www.france24.com/fr/%C3%A9co-tech/rss')],
+    links: [Lk('Boursorama — CAC 40', 'https://www.boursorama.com/bourse/indices/cours/1rPCAC/'), Lk('Les Echos Investir', 'https://investir.lesechos.fr/'), Lk('Banque de France', 'https://www.banque-france.fr/'), Lk('INSEE', 'https://www.insee.fr/')] },
+  { kind: 'bourse-fr', name: 'Bourse France', color: '#6cc47f', keywords: 'CAC 40 OR Bourse de Paris OR Euronext Paris OR ETF', w: { markets: true, watch: ['CW8.PA', 'ESE.PA', 'MC.PA', 'TTE.PA', 'AIR.PA', 'SAF.PA', 'HO.PA'] },
+    feeds: [F('Le Monde Économie', 'https://www.lemonde.fr/economie/rss_full.xml'), F('Boursorama', 'https://www.boursorama.com/rss/actualites/economie')],
+    links: [Lk('Boursorama', 'https://www.boursorama.com/'), Lk('Les Echos Bourse', 'https://investir.lesechos.fr/'), Lk('Euronext Paris', 'https://live.euronext.com/fr'), Lk('Crédit Agricole (compte)', 'https://www.credit-agricole.fr/')] },
+  { kind: 'bourse-monde', name: 'Marchés mondiaux', color: '#38d6c4', keywords: 'Wall Street OR marchés mondiaux OR Fed OR BCE OR Nasdaq', w: { markets: true, watch: ['VT', 'SPY', 'QQQ', 'GC=F', 'BZ=F', 'EURUSD=X', 'BTC-EUR'] }, country: 'US',
+    feeds: [F('BBC Business', 'https://feeds.bbci.co.uk/news/business/rss.xml'), F('CNBC', 'https://www.cnbc.com/id/100003114/device/rss/rss.html')],
+    links: [Lk('Yahoo Finance', 'https://fr.finance.yahoo.com/'), Lk('Investing.com', 'https://fr.investing.com/'), Lk('TradingView', 'https://fr.tradingview.com/')] },
+  { kind: 'plongee', name: 'Plongée', color: '#4fa8ff', keywords: 'plongée sous-marine OR apnée OR chasse sous-marine OR plongeur de combat', w: { sea: true },
+    feeds: [],
+    links: [Lk('FFESSM', 'https://ffessm.fr/'), Lk('Shom — marées', 'https://maree.shom.fr/'), Lk('Windy — vagues', 'https://www.windy.com/-Waves-waves'), Lk('Météo marine (Météo-France)', 'https://meteofrance.com/meteo-marine')] },
+  { kind: 'drones', name: 'Drones & FPV', color: '#ff8a3d', keywords: 'drone FPV OR drones militaires OR UAV OR guerre des drones', w: { },
+    feeds: [F('DroneDJ', 'https://dronedj.com/feed/'), F('The War Zone', 'https://www.twz.com/feed')],
+    links: [Lk('Oscar Liang', 'https://oscarliang.com/'), Lk('Betaflight', 'https://betaflight.com/'), Lk('Géoportail — zones drones', 'https://www.geoportail.gouv.fr/donnees/restrictions-pour-drones-de-loisir'), Lk('SIA — NOTAM', 'https://www.sia.aviation-civile.gouv.fr/')] },
+  { kind: 'militaire', name: 'Militaire', color: '#ff5a3c', keywords: 'armée de Terre OR Légion étrangère OR militaire OR défense', w: { watch: ['AIR.PA', 'HO.PA', 'SAF.PA', 'RHM.DE'] },
+    feeds: [F('Zone Militaire (Opex360)', 'https://www.opex360.com/feed/'), F('Defense News', 'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml'), F('Militarnyi', 'https://militarnyi.com/en/feed/')],
+    links: [Lk('Ministère des Armées', 'https://www.defense.gouv.fr/'), Lk('Légion étrangère', 'https://www.legion-etrangere.com/'), Lk('OPEX360', 'https://www.opex360.com/')] }
 ];
-const WIDGETS = { markets: 'INDICES BOURSIERS DU PAYS', watch: 'COURS SUIVIS (actions, ETF, crypto, matières premières)', launches: 'PROCHAINS LANCEMENTS SPATIAUX', quakes: 'SÉISMES (24 H)', air: 'QUALITÉ DE L’AIR & POLLENS (ta position)', hn: 'TOP HACKER NEWS (tech, en anglais)', links: 'LIENS UTILES', notes: 'NOTES' };
+const WIDGETS = { cac: 'CAC 40 EN DIRECT + LES 40 ACTIONS', impact: 'ANALYSE D’IMPACT DES ACTUS (secteurs, actions)', sea: 'CONDITIONS MER & PLONGÉE (ma position + cible)', markets: 'INDICES BOURSIERS DU PAYS', watch: 'COURS SUIVIS (actions, ETF, crypto, matières premières)', launches: 'PROCHAINS LANCEMENTS SPATIAUX', quakes: 'SÉISMES (24 H)', air: 'QUALITÉ DE L’AIR & POLLENS (ta position)', hn: 'TOP HACKER NEWS (tech, en anglais)', links: 'LIENS UTILES', notes: 'NOTES' };
 const mkW = (p) => ({ markets: false, watch: [], launches: false, quakes: false, air: false, hn: false, notes: '', ...(p.w || {}), links: (p.links || []).map(l => ({ ...l })), show: { links: true, notes: true } });
 // version de la langue choisie (noms, mots-clés, sources et liens en anglais si l'interface est en anglais)
 const LP = (p) => QG_LANG === 'en' && p.en ? { ...p, ...p.en, feeds: p.en.feeds || p.feeds, links: p.en.links || p.links } : p;
 const PN = (p) => LP(p).name;
-const mkTopic = (p0) => { const p = LP(p0); return { id: 't' + Math.random().toString(36).slice(2, 8), kind: p.kind || 'perso', name: p.name, color: p.color, keywords: p.keywords || '', feeds: (p.feeds || []).map(f => ({ ...f })), enabled: true, country: QG_LANG === 'en' ? 'US' : 'FR', w: mkW(p) }; };
+const mkTopic = (p0) => { const p = LP(p0); return { id: 't' + Math.random().toString(36).slice(2, 8), scope: p.scope || 'mil', kind: p.kind || 'perso', name: p.name, color: p.color, keywords: p.keywords || '', feeds: (p.feeds || []).map(f => ({ ...f })), enabled: true, country: p.country || (QG_LANG === 'en' ? 'US' : 'FR'), w: mkW(p) }; };
 // complète un topic ancien / incomplet
 function ensureTopic(t) {
   const p = TOPIC_PRESETS.find(x => x.kind === t.kind) || TOPIC_PRESETS.find(x => x.name.toLowerCase() === String(t.name || '').toLowerCase()) || {};
@@ -100,12 +128,12 @@ function ensureTopic(t) {
   t.w.watch = Array.isArray(t.w.watch) ? t.w.watch : []; t.w.links = Array.isArray(t.w.links) ? t.w.links : []; t.w.show = t.w.show || { links: true, notes: true };
   return t;
 }
-const defaultTopics = () => [mkTopic(TOPIC_PRESETS[0]), mkTopic(TOPIC_PRESETS[2]), mkTopic(TOPIC_PRESETS[3])];
+const defaultTopics = () => ['mil-def', 'mil-terre', 'mil-mer', 'mil-air', 'mil-ops', 'mil-drones', 'mil-ind', 'marche-fr'].map(k => mkTopic(TOPIC_PRESETS.find(p => p.kind === k)));
 const gnewsUrl = (q) => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:2d') + (QG_LANG === 'en' ? '&hl=en-US&gl=US&ceid=US:en' : '&hl=fr&gl=FR&ceid=FR:fr');
 let CAT = {};
 function buildCats() {
   CAT = {};
-  for (const t of (S.data.settings.topics || [])) if (t.enabled !== false) CAT[t.id] = { label: (t.name || 'TOPIC').toUpperCase(), css: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#d8d4c8', color: parseInt((/^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#d8d4c8').slice(1), 16) };
+  for (const t of (S.data.settings.topics || [])) if (t.enabled !== false && t.scope !== 'eco') CAT[t.id] = { label: (t.name || 'TOPIC').toUpperCase(), css: /^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#d8d4c8', color: parseInt((/^#[0-9a-f]{6}$/i.test(t.color) ? t.color : '#d8d4c8').slice(1), 16) };
   // onglets + légende
   const tabs = $('#news-tabs'); if (!CAT[S.newsCat]) S.newsCat = 'all';
   tabs.replaceChildren(el('button', { class: S.newsCat === 'all' ? 'on' : null, 'data-c': 'all', text: 'TOUT' }), ...Object.entries(CAT).map(([id, c]) => el('button', { class: S.newsCat === id ? 'on' : null, 'data-c': id, text: c.label, style: '--tc:' + c.css })));
@@ -124,7 +152,7 @@ function tick() { const d = new Date(); $('#clock').textContent = `${JOURS[d.get
 setInterval(tick, 1000); tick();
 function route() {
   const views = $$('nav a').map(a => a.dataset.v);
-  const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'qg';
+  const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : views[0];
   for (const id of views) $('#v-' + id).hidden = id !== v;
   $$('nav a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
   if (v === 'qg' && globe) setTimeout(() => globe.resize(), 0);
@@ -188,7 +216,6 @@ function initGlobe() {
     scene.add(segs(borders.coordinates, R + 0.25, 0xe4a83a, 0.28));
     msg.textContent = '';
   });
-  // Calvi
   // Ma position : balise dorée (hexagone + faisceau + onde) — survol = infos, clic = zoom
   const home = new THREE.Group(); scene.add(home);
   const hHex = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.6, 6), new THREE.MeshBasicMaterial({ color: 0xffc35a, side: THREE.DoubleSide }));
@@ -400,10 +427,25 @@ async function loadNews() {
   }
   S.news = out; S.newsErrors = errors; S.newsAt = new Date().toISOString();
   try { localStorage.setItem('qg-news', JSON.stringify({ news: out, at: S.newsAt })); } catch (e) {}
-  renderNews(); if (globe) globe.setPins(out); updateStrip();
+  renderNews(); renderBranches(); if (globe) globe.setPins(out); updateStrip();
   if (window.QGViews && QGViews.topics) QGViews.topics.refresh();
   refineNews();
   return !!out.length;
+}
+// colonne gauche de l'onglet ACTU MILITAIRE : branches + sources
+function renderBranches() {
+  const box = $('#br-list'); if (!box) return;
+  const T = (S.data.settings.topics || []).filter(t => t.enabled !== false && t.scope !== 'eco');
+  const cnt = (id) => S.news.filter(n => n.cat === id).length, recent = (id) => S.news.filter(n => n.cat === id && Date.now() - new Date(n.date) < 6 * 3600e3).length;
+  $('#br-count').textContent = S.news.filter(n => CAT[n.cat]).length + ' ACTUS / 48 H';
+  const pickCat = (c) => { S.newsCat = c; $$('#news-tabs button').forEach(x => x.classList.toggle('on', x.dataset.c === c)); S.sel = null; renderNews(); if (globe) globe.vis(); renderBranches(); };
+  box.replaceChildren(
+    el('button', { class: 'brb' + (S.newsCat === 'all' ? ' on' : ''), style: '--tc:var(--amber)', onclick: () => pickCat('all') }, el('i', { text: '■' }), el('span', { text: 'TOUTES LES BRANCHES' }), el('small', { text: String(S.news.filter(n => CAT[n.cat]).length) })),
+    ...T.map(t => el('button', { class: 'brb' + (S.newsCat === t.id ? ' on' : ''), style: '--tc:' + t.color, onclick: () => pickCat(t.id) }, el('i', { text: '■' }), el('span', { text: t.name.toUpperCase() }),
+      el('small', {}, recent(t.id) ? el('b', { class: 'mid', text: '+' + recent(t.id) + ' ' }) : null, String(cnt(t.id))))),
+    el('div', { class: 'note', text: '+N = publiées ces 6 dernières heures. Clic : filtre le fil et le globe. Sources françaises uniquement (Google News France + sites spécialisés).' }));
+  const src = $('#br-src');
+  if (src && !src.childNodes.length || (src && src.textContent === '')) src.replaceChildren(el('div', { class: 'chips' }, ...[['Ministère des Armées', 'https://www.defense.gouv.fr/actualites'], ['Zone Militaire', 'https://www.opex360.com/'], ['Forces Operations', 'https://www.forcesoperations.com/'], ['Meta-Defense', 'https://meta-defense.fr/'], ['Légion étrangère', 'https://www.legion-etrangere.com/'], ['Terre Info', 'https://www.defense.gouv.fr/terre']].map(([n, u]) => el('button', { class: 'chipb', style: '--tc:var(--amber)', text: n + ' ↗', onclick: () => window.qg.open(u) }))));
 }
 function renderNews() {
   const box = $('#news'); box.replaceChildren();
@@ -437,7 +479,7 @@ $('#focus-x').onclick = () => { $('#focus').style.display = 'none'; S.sel = null
 // onglets du fil (délégation : marche aussi pour les onglets recréés quand les topics changent)
 $('#news-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-c]'); if (!b) return;
-  S.newsCat = b.dataset.c; $$('#news-tabs button').forEach(x => x.classList.toggle('on', x === b));
+  S.newsCat = b.dataset.c; $$('#news-tabs button').forEach(x => x.classList.toggle('on', x === b)); renderBranches();
   S.sel = null; renderNews(); if (globe) globe.vis(); $('#news').scrollTop = 0;
 });
 
@@ -487,13 +529,28 @@ function distKm(a, b) { const R = 6371, t = Math.PI / 180, dl = (b.lat - a.lat) 
 async function locateMe(force) {
   const loc = S.data.settings.location;
   if (loc.mode === 'manual' && !force) return false;
-  const p = await window.qg.locate();
-  const moved = !loc.lat || distKm(loc, p) > 1;
-  S.data.settings.location = { ...loc, name: p.name || loc.name, lat: p.lat, lon: p.lon, mode: 'auto', source: p.source, accuracy: p.accuracy, at: p.at };
+  let p = await window.qg.locate();
+  // position approximative (IP) : si un lieu précis enregistré est dans la zone d'incertitude, on le prend
+  if (!(p.accuracy <= 1000)) {
+    const cands = [...(S.data.settings.favs || []), ...(S.data.settings.pins || [])];
+    const r = Math.min(30, Math.max(5, (p.accuracy || 20000) / 1000 * 1.5));
+    let best = null; for (const f of cands) { const dk = distKm(p, f); if (dk <= r && (!best || dk < best.d)) best = { f, d: dk }; }
+    if (best) p = { ...p, name: best.f.name, lat: best.f.lat, lon: best.f.lon, accuracy: 50, source: 'favori', via: p.source === 'ip' ? 'IP ±' + Math.round((p.accuracy || 5000) / 1000) + ' km → lieu enregistré' : 'lieu enregistré' };
+  }
+  const moved = !loc.lat || distKm(loc, p) > 0.2;
+  S.data.settings.location = { ...loc, name: p.name || loc.name, lat: p.lat, lon: p.lon, mode: 'auto', source: p.source, via: p.via || '', accuracy: p.accuracy, winStatus: p.winStatus, wifiCount: p.wifiCount, at: p.at };
   save();
   if (globe) globe.setHome(p.lat, p.lon);
   $('#legend-home').textContent = (p.name || 'MA POSITION').toUpperCase();
   return moved;
+}
+// description lisible de la source de position
+function locSource(l) {
+  if (l.mode !== 'auto') return 'POSITION ÉPINGLÉE (MANUELLE)';
+  const via = { WiFi: 'WI-FI', Satellite: 'GPS', Cellular: 'RÉSEAU MOBILE', IPAddress: 'IP' }[l.via] || l.via || '';
+  const s = l.source === 'windows' ? 'WINDOWS ' + via : l.source === 'wifi' ? 'WI-FI (' + l.via + ')' : l.source === 'favori' ? 'LIEU ENREGISTRÉ' : l.source === 'ip' ? 'ADRESSE IP (approx.)' : '—';
+  const acc = l.accuracy ? ' · ±' + (l.accuracy >= 1000 ? Math.round(l.accuracy / 1000) + ' km' : Math.round(l.accuracy) + ' m') : '';
+  return 'AUTO · ' + s.trim() + acc;
 }
 function locLabel() {
   const l = S.data.settings.location;
@@ -656,6 +713,7 @@ function renderDetail() {
    ========================================================= */
 async function refreshAll() {
   $('#refresh').disabled = true;
+  if (window.updateTargetStrip) window.updateTargetStrip(false);
   const r = await Promise.allSettled([loadWeather(), loadNews(), loadMail()]);
   const ok = r[0].status === 'fulfilled' || (r[1].status === 'fulfilled' && r[1].value);
   setNet(ok, ok ? 'EN LIGNE' : 'HORS LIGNE');
@@ -666,16 +724,33 @@ async function refreshAll() {
   if (document.readyState === 'loading') await new Promise(res => document.addEventListener('DOMContentLoaded', res));
   try { window.qg.setLang && window.qg.setLang(QG_LANG); } catch (e) {}
   S.data = await window.qg.getData();
-  { const l = (S.data.settings || {}).lang; if ((l === 'en' || l === 'fr') && l !== QG_LANG) { setLang(l); location.reload(); return; } }
   S.data.settings = S.data.settings || {};
   if (!S.data.settings.location) S.data.settings.location = { name: 'Paris', lat: 48.8566, lon: 2.3522, mode: 'manual' };
   if (!S.data.settings.location.mode) S.data.settings.location.mode = 'manual';
-  S.data.training = S.data.training || { goals: [{ id: 'g1', name: 'Course 5 km', type: 'course', distance: 5000, target: 1500 }], sessions: [] };
-  if (!S.data.training.goals) S.data.training.goals = [];
+  S.data.training = S.data.training || { sessions: [] };
+  S.data.training.targets = S.data.training.targets || { run2400: 520, march8k: 2400, marchLoad: 11 };
+  S.data.training.sessions = S.data.training.sessions || [];
+  S.data.drones = S.data.drones || { craft: [], batteries: [], flights: [] };
+  S.data.study = S.data.study || {}; S.data.study.vocab = S.data.study.vocab || {}; S.data.study.quiz = S.data.study.quiz || { right: 0, total: 0 };
+  // position automatique par défaut
+  if (!S.data.settings.v2) { S.data.settings.v2 = true; S.data.settings.location.mode = 'auto'; }
+  if (!S.data.settings.profile) S.data.settings.profile = { callsign: '' };
+  S.data.settings.favs = S.data.settings.favs || [
+    { name: 'Paris', lat: 48.8566, lon: 2.3522 }, { name: 'Lyon', lat: 45.7640, lon: 4.8357 }, { name: 'Marseille', lat: 43.2965, lon: 5.3698 },
+    { name: 'Toulouse', lat: 43.6047, lon: 1.4442 }, { name: 'Bordeaux', lat: 44.8378, lon: -0.5792 }];
+  S.data.settings.target = S.data.settings.target || S.data.settings.favs[1];
   S.data.deadlines = S.data.deadlines || [];
-  S.data.settings.modules = Object.assign({ mails: true, actus: true, projets: true, sport: true, agenda: true, systeme: true }, S.data.settings.modules || {});
+  S.data.settings.modules = Object.assign({ meteo: true, actus: true, terminal: true, mails: false, projets: false, drones: true, sport: false, perso: false, systeme: false }, S.data.settings.modules || {});
   if (!Array.isArray(S.data.settings.topics)) S.data.settings.topics = defaultTopics();
   S.data.settings.topics.forEach(ensureTopic);
+  // v3 : 4 onglets (météo/drone, actu militaire française, terminal, réglages)
+  if (!S.data.settings.v3) {
+    S.data.settings.v3 = true; S.data.settings.addMarche = true;
+    const eco = S.data.settings.topics.find(t => t.kind === 'marche-fr');
+    S.data.settings.topics = defaultTopics(); if (eco) { const k = S.data.settings.topics.findIndex(t => t.kind === 'marche-fr'); S.data.settings.topics[k] = { ...eco, scope: 'eco' }; }
+    S.data.settings.modules = { meteo: true, actus: true, terminal: true, mails: false, projets: false, drones: true, sport: false, perso: false, systeme: false };
+  }
+  if (!S.data.settings.addMarche) { S.data.settings.addMarche = true; if (!S.data.settings.topics.some(t => t.kind === 'marche-fr')) { const k = Math.max(0, S.data.settings.topics.findIndex(t => t.kind === 'bourse-fr')); S.data.settings.topics.splice(k, 0, mkTopic(TOPIC_PRESETS.find(p => p.kind === 'marche-fr'))); } }
   delete S.data.settings.feeds;
   S.data.settings.importantSenders = S.data.settings.importantSenders || [];
   S.data.projects = S.data.projects || []; S.data.projects.forEach(p => { p.tasks = p.tasks || []; p.logs = p.logs || []; p.shopping = p.shopping || []; });
@@ -687,11 +762,10 @@ async function refreshAll() {
   $('#legend-home').textContent = S.data.settings.location.name.toUpperCase();
   buildCats();
   applyProfile();
-  route(); renderNews(); renderWeather(); updateStrip();
-  if (!S.data.settings.profile) showOnboarding();
+  route(); renderNews(); renderBranches(); renderWeather(); updateStrip();
   if (globe && S.news.length) globe.setPins(S.news);
   refreshAll();
-  locateMe(false).then(moved => { if (moved) loadWeather().catch(() => {}); }).catch(() => {});
+  locateMe(false).then(moved => { if (moved) loadWeather().catch(() => {}); if (QGViews.meteo) QGViews.meteo.refresh(); }).catch(() => {});
   setInterval(() => loadMail(), 5 * 60e3);
   setInterval(() => locateMe(false).then(m => { if (m) loadWeather().catch(() => {}); }).catch(() => {}), 30 * 60e3);
   setInterval(() => { loadNews().catch(() => {}); loadWeather().catch(() => {}); }, 30 * 60e3);

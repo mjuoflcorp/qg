@@ -2,12 +2,9 @@
 'use strict';
 
 const MODS = [
-  ['mails', 'MAILS', 'Mails Gmail non lus sur la page QG'],
-  ['actus', 'ACTUALITÉS & TOPICS', 'Fil d’actus, globe, une page par topic (bourse, etc.)'],
-  ['projets', 'PROJETS', 'Projets, tâches, journal de bord, liste d’achats'],
-  ['sport', 'SPORT', 'Séances, objectifs, courbes de progression'],
-  ['agenda', 'AGENDA', 'Échéances avec compte à rebours, notes rapides'],
-  ['systeme', 'SYSTÈME', 'Analyse du PC et du réseau']
+  ['meteo', 'MÉTÉO / DRONE', 'Météo ici + cible, GO/NO-GO, carnet de vol, batteries'],
+  ['actus', 'ACTU MILITAIRE', 'Actu militaire française sur le globe, par branche'],
+  ['terminal', 'TERMINAL', 'CAC 40, valeurs, lecture du marché, ma liste']
 ];
 const cleanCall = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Z0-9_-]/g, '_').slice(0, 16);
 const errText = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
@@ -16,15 +13,16 @@ function applyProfile() {
   const st = S.data.settings, md = st.modules, p = st.profile || {};
   $('#callsign').textContent = cleanCall(p.callsign) || '1.0';
   for (const [k] of MODS) { const a = $(`nav a[data-v="${k}"]`); if (a) a.style.display = md[k] ? '' : 'none'; }
-  $('nav a[data-v="topics"]').style.display = md.actus ? '' : 'none';
+  { const a = $('nav a[data-v="topics"]'); if (a) a.style.display = md.actus ? '' : 'none'; }
+  { const a = $('nav a[data-v="qg"]'); if (a) a.style.display = md.actus === false ? 'none' : ''; }
   $('#p-mail').style.display = md.mails ? '' : 'none';
   $('#news').closest('.panel').style.display = md.actus ? '' : 'none';
   $('#v-qg').style.gridTemplateColumns = md.actus ? '' : '330px minmax(0,1fr)';
-  for (const [id, on] of [['s-mail', md.mails], ['s-news', md.actus], ['s-proj', md.projets], ['s-dl', md.agenda]]) { const x = $('#' + id); if (x) x.parentElement.style.display = on ? '' : 'none'; }
+  for (const [id, on] of [['s-mail', md.mails], ['s-news', md.actus], ['s-proj', md.projets], ['s-dl', md.perso]]) { const x = $('#' + id); if (x) x.parentElement.style.display = on ? '' : 'none'; }
   const v = location.hash.slice(1); if (v && (md[v] === false || (v === 'topics' && !md.actus))) location.hash = '#qg';
 }
 // sélecteur de langue (recharge l'interface)
-function langPicker() {
+function langPicker() { return null;
   const b = (l, t) => el('button', { class: 'chipb' + (QG_LANG === l ? ' on' : ''), style: '--tc:var(--amber)', 'data-notr': '1', text: t, onclick: () => { if (QG_LANG === l) return; setLang(l); S.data.settings.lang = l; window.qg.setData(S.data).finally(() => location.reload()); } });
   return el('div', { class: 'chips', style: 'margin:0 0 6px' }, el('span', { class: 'dim', style: 'margin-right:6px', text: 'LANGUE / LANGUAGE' }), b('fr', 'FRANÇAIS'), b('en', 'ENGLISH'));
 }
@@ -99,16 +97,41 @@ function secProfil(b) {
     el('div', { class: 'sect', text: 'MODULES AFFICHÉS' }), mods,
     el('div', { class: 'row' }, el('button', { class: 'btn amber', text: 'ENREGISTRER', onclick: () => { st.profile = { ...(st.profile || {}), callsign: call.value.trim().slice(0, 16) }; st.modules = readMods(mods); save(); applyProfile(); flash(msg, 'ENREGISTRÉ ✓'); } }), msg));
 }
-function secPosition(b) {
-  const st = S.data.settings, l = st.location;
+async function secPosition(b) {
+  const st = S.data.settings, l = st.location, msg = msgSpan();
   const auto = el('input', { type: 'checkbox' }); auto.checked = l.mode === 'auto';
   auto.onchange = () => { st.location.mode = auto.checked ? 'auto' : 'manual'; save(); if (auto.checked) locateMe(true).then(() => fillSettings()).catch(() => {}); };
+  const ok = (c, t) => el('span', { class: c ? 'good' : 'badc', text: (c ? '✓ ' : '✗ ') + t });
+  const diag = el('div', { class: 'diag' });
+  const drawDiag = () => {
+    const L = st.location, k = window._geoKey || {};
+    diag.replaceChildren(
+      el('div', {}, el('b', { text: 'ACTUELLE : ' }), (L.name || '').toUpperCase() + ' — ' + locSource(L) + (L.at ? ' · ' + ago(L.at).toLowerCase() : '')),
+      el('div', {}, L.winStatus === 'ok' ? ok(1, 'Localisation Windows autorisée') : L.winStatus === 'denied' ? ok(0, 'Localisation Windows REFUSÉE — c’est la cause n°1 d’une mauvaise position') : el('span', { class: 'mid', text: '? Localisation Windows non disponible' })),
+      el('div', {}, L.wifiCount > 1 ? ok(1, L.wifiCount + ' réseaux Wi-Fi visibles (servent à trianguler)') : el('span', { class: 'mid', text: '? Pas de scan Wi-Fi (Wi-Fi éteint ou localisation Windows refusée)' })),
+      el('div', {}, k.hasKey ? ok(1, 'Clé Google Geolocation enregistrée (précision ±20–50 m)') : el('span', { class: 'dim', text: '– Pas de clé Google : la triangulation Wi-Fi utilise BeaconDB (gratuit, moins de couverture)' })));
+  };
+  try { window._geoKey = await window.qg.geoKey(); } catch (e) {}
+  drawDiag();
+  const key = el('input', { type: 'password', placeholder: (window._geoKey || {}).hasKey ? '•••••••• (enregistrée — laisser vide pour garder)' : 'AIza…' });
   b.append(
-    el('p', { class: 'dim', text: 'Ta position sert à la météo et au repère doré sur le globe. Elle reste sur ce PC. Choisis-la sur la carte, cherche une adresse, colle un lien Google Maps (partager → copier le lien), ou laisse l’app te localiser.' }),
-    mapPicker(l, (p) => setLocation(p), { height: 420 }),
+    el('div', { class: 'sect', text: 'DIAGNOSTIC' }), diag,
+    el('div', { class: 'row', style: 'margin:8px 0 14px' },
+      el('button', { class: 'btn amber', text: '⌖ RELOCALISER MAINTENANT', onclick: async () => { msg.textContent = 'LOCALISATION (≈15 s)…'; try { await locateMe(true); msg.textContent = 'OK'; drawDiag(); loadWeather().catch(() => {}); } catch (e) { msg.textContent = 'ÉCHEC : ' + errText(e); } } }),
+      el('button', { class: 'btn', text: 'OUVRIR LA LOCALISATION WINDOWS', onclick: () => window.qg.openLocSettings() }), msg),
+    el('div', { class: 'sect', text: 'POUR ÊTRE À ±100 m' }),
+    el('ol', { class: 'seclist' },
+      el('li', { text: 'Windows : Paramètres › Confidentialité et sécurité › Localisation → activer « Services de localisation » ET « Autoriser les applications de bureau à accéder à votre localisation ».' }),
+      el('li', { text: 'Laisser le Wi-Fi activé (même sans être connecté) : Windows et l’app triangulent avec les bornes autour.' }),
+      el('li', { text: 'Le plus précis, partout : épingle ta position sur la carte satellite ci-dessous (±10 m). Le point est mémorisé : quand la détection est floue près de là, l’app le reprend.' }),
+      el('li', { text: 'Option : clé « Geolocation API » Google (console.cloud.google.com › API › Geolocation API › Identifiants). Utilisation perso largement dans le quota gratuit ; Google demande quand même une carte bancaire pour activer le compte.' })),
+    el('label', {}, 'CLÉ GOOGLE GEOLOCATION (optionnel, stockée chiffrée)', key),
+    el('div', { class: 'row', style: 'margin-bottom:14px' }, el('button', { class: 'btn', text: 'ENREGISTRER LA CLÉ', onclick: async () => { try { await window.qg.setGeoKey(key.value); window._geoKey = await window.qg.geoKey(); key.value = ''; drawDiag(); msg.textContent = 'CLÉ ENREGISTRÉE'; } catch (e) { msg.textContent = 'ÉCHEC : ' + errText(e); } } }),
+      el('button', { class: 'btn', text: 'PAGE GOOGLE CLOUD', onclick: () => window.qg.open('https://console.cloud.google.com/apis/library/geolocation.googleapis.com') })),
+    el('div', { class: 'sect', text: 'ÉPINGLER À LA MAIN (CARTE SATELLITE)' }),
+    mapPicker(l, (p) => { setLocation({ ...p, mode: 'manual', accuracy: 10 }); const P = (st.pins || []).filter(x => distKm(x, p) > 0.3); P.push({ name: p.name, lat: p.lat, lon: p.lon }); st.pins = P.slice(-20); save(); drawDiag(); auto.checked = false; }, { height: 380 }),
     el('div', { class: 'sect', text: 'MISE À JOUR AUTOMATIQUE' }),
-    el('label', { class: 'chk' }, auto, 'SUIVRE MA POSITION AUTOMATIQUEMENT (localisation Windows, sinon adresse IP)'),
-    el('p', { class: 'dim', text: 'Pour une localisation automatique précise : Paramètres Windows → Confidentialité et sécurité → Localisation → Activer.' }));
+    el('label', { class: 'chk' }, auto, 'SUIVRE MA POSITION AUTOMATIQUEMENT (toutes les 30 min et au lancement)'));
 }
 function secActus(b) {
   const st = S.data.settings, T = st.topics, msg = msgSpan();
@@ -181,15 +204,15 @@ async function secDonnees(b) {
       el('button', { class: 'btn amber', text: 'EXPORTER…', onclick: async () => { const f = await window.qg.backupExport(); if (f) msg.textContent = 'EXPORTÉ : ' + f; } }),
       el('button', { class: 'btn', text: 'IMPORTER…', onclick: async () => { try { if (await window.qg.backupImport()) location.reload(); } catch (e) { msg.textContent = 'ÉCHEC : ' + errText(e); } } })),
     el('div', { class: 'sect', text: 'ACCÈS DEPUIS LE TÉLÉPHONE' }),
-    info.oneDrive ? el('label', { class: 'chk' }, od, 'COPIER DANS ONEDRIVE\\QG 1.0 (copie NON chiffrée)') : el('p', { class: 'dim', text: 'OneDrive non détecté sur ce PC.' }),
+    info.oneDrive ? el('label', { class: 'chk' }, od, 'COPIER DANS ONEDRIVE\\QG (copie NON chiffrée)') : el('p', { class: 'dim', text: 'OneDrive non détecté sur ce PC.' }),
     el('p', { class: 'dim', text: 'Ouvre ensuite QG-resume.html dans l’appli OneDrive de ton téléphone (lecture seule).' }),
     el('p', { class: 'dim', text: 'Données : ' + await window.qg.dataPath() }), msg);
 }
 function secSecurite(b) {
   const L = (t) => el('li', { text: t });
   b.append(
-    el('div', { class: 'sect', text: 'QG 1.0' }),
-    el('p', {}, 'Version 1.0.1 · tableau de bord personnel hors ligne : actus, météo, mails, projets, sport, agenda, système.'),
+    el('div', { class: 'sect', text: 'QG' }),
+    el('p', {}, 'QG · météo ici + cible, drones, actu militaire, terminal de marché.'),
     el('div', { class: 'sect', text: 'CE QUI PROTÈGE TES DONNÉES' }),
     el('ul', { class: 'seclist' },
       L('Données et mot de passe Gmail chiffrés avec ton compte Windows (DPAPI) : illisibles sur un autre PC ou par un autre utilisateur.'),

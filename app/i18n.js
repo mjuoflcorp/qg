@@ -2,10 +2,10 @@
    L'interface est écrite en français ; en anglais, chaque texte affiché est traduit à la volée. */
 'use strict';
 // langue : choix enregistré, sinon langue de Windows (français si Windows est en français, anglais sinon)
-const QG_LANG = (() => { let v = null; try { v = localStorage.getItem('qg-lang'); } catch (e) {} if (v === 'en' || v === 'fr') return v; return /^fr/i.test(navigator.language || 'fr') ? 'fr' : 'en'; })();
+const QG_LANG = 'fr'; const _QG_LANG_AUTO = (() => { let v = null; try { v = localStorage.getItem('qg-lang'); } catch (e) {} if (v === 'en' || v === 'fr') return v; return /^fr/i.test(navigator.language || 'fr') ? 'fr' : 'en'; })();
 const QG_LOCALE = QG_LANG === 'en' ? 'en-GB' : 'fr-FR';
 document.documentElement.lang = QG_LANG;
-function setLang(l) { try { localStorage.setItem('qg-lang', l === 'en' ? 'en' : 'fr'); } catch (e) {} }
+function setLang(l) { return; try { localStorage.setItem('qg-lang', l === 'en' ? 'en' : 'fr'); } catch (e) {} }
 
 const EN = {
   // navigation, titres
